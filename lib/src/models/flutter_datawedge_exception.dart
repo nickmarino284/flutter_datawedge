@@ -1,7 +1,7 @@
 class FlutterDatawedgeException implements Exception {
-  final String message;
-
   FlutterDatawedgeException(this.message);
+  
+  final String message;
 }
 
 class NotInitializedException extends FlutterDatawedgeException {

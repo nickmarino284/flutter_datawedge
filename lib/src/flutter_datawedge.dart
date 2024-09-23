@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_datawedge/flutter_datawedge.dart';
 import 'package:flutter_datawedge/logger.dart';
 import 'package:flutter_datawedge/src/pigeon.dart';
+import 'package:flutter_datawedge/src/result.dart';
 
 /// Thrown if the profile we try to create already exists
 class ProfileExistsError extends Error {}
@@ -67,7 +68,7 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   }
 
   /// Disables all decoders
-  Future<List<Decoder>> disableAllDecoders(String profileName) async {
+  Future<CmdResult<List<Decoder>>> disableAllDecoders(String profileName) async {
     return _setAllDecoders(false, profileName);
   }
 
@@ -77,26 +78,39 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   }
 
   /// Enables all decoders
-  Future<List<Decoder>> enableAllDecoders(String profileName) async {
+  Future<CmdResult<List<Decoder>>> enableAllDecoders(String profileName) async {
     return _setAllDecoders(true, profileName);
   }
 
-  Future<List<Decoder>> _setAllDecoders(
-    bool enabled,
-    String profileName,
+  Future<CmdResult<List<Decoder>>> _setAllDecoders(
+      bool enabled,
+      String profileName,
   ) async {
     final availableDecoders = <Decoder>[];
+    var anyFailures = false;
+    String error = '';
+
     for (final decoder in Decoder.values) {
       try {
         await _hostApi.setDecoder(decoder, enabled, profileName);
         availableDecoders.add(decoder);
+        logger.info('Decoder $decoder enabled');
       } catch (e) {
         logger.info('Decoder $decoder not available');
+        anyFailures = true;
+        error = e.toString();
       }
     }
 
-    return availableDecoders;
+    // If any decoders failed, return a failure CmdResult with the available decoders.
+    if (anyFailures) {
+      return CmdResult.failure( 'Could not be enabled due to an error: $error');
+    }
+
+    // If all decoders were successfully enabled, return success.
+    return CmdResult.success(availableDecoders);
   }
+
 
   /// Update a profile config
   Future<void> setConfig(
@@ -155,26 +169,52 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
 
   /// Resumes the scanning from suspended state
 
-  Future<void> resumePlugin() async {
-    logger.debug('Resuming plugin');
-    final resCode = await _hostApi.resumePlugin();
+  Future<CmdResult<String>> resumePlugin() async {
+    try {
+      logger.debug('Resuming plugin');
+      final resCode = await _hostApi.resumePlugin();
+      return CmdResult.success(resCode);
+    } catch (e) {
+      logger.error('Error resuming plugin: $e', StackTrace.current);
+      return CmdResult.failure('Failed to resume plugin: $e');
+    }
   }
 
   /// Suspends scanning temporarily
-  Future<void> suspendPlugin() async {
-    logger.debug('Suspending plugin');
-    final resCode = await _hostApi.suspendPlugin();
+  Future<CmdResult<String>> suspendPlugin() async {
+    try {
+      logger.debug('Suspending plugin');
+      final resCode = await _hostApi.suspendPlugin();
+      return CmdResult.success(resCode);
+    } catch (e) {
+      logger.error('Error suspending plugin: $e', StackTrace.current);
+      return CmdResult.failure('Failed to suspend plugin: $e');
+    }
   }
 
   /// Disables scanning
-  Future<void> disablePlugin() async {
-    logger.debug('Disabling plugin');
-    final resCode = await _hostApi.disablePlugin();
+  Future<CmdResult<String>> disablePlugin() async {
+    try {
+      logger.debug('Disabling plugin');
+      final resCode = await _hostApi.disablePlugin();
+      return CmdResult.success(resCode);
+    } catch (e) {
+      logger.error('Error disabling plugin: $e', StackTrace.current);
+      return CmdResult.failure('Failed to disable plugin: $e');
+    }
   }
 
   /// Enables scanning
-  Future<void> enablePlugin() async {
-    logger.debug('Enabling plugin');
-    final resCode = await _hostApi.enablePlugin();
+  Future<CmdResult<String>> enablePlugin() async {
+    try {
+      logger.debug('Enabling plugin');
+      final resCode = await _hostApi.enablePlugin();
+      return CmdResult.success(resCode);
+    } catch (e) {
+      logger.error('Error enabling plugin: $e', StackTrace.current);
+      return CmdResult.failure('Failed to enable plugin: $e');
+    }
   }
+
+
 }

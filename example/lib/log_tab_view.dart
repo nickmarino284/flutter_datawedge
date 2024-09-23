@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_datawedge/flutter_datawedge.dart';
 
 class LogTabView extends StatefulWidget {
-  LogTabView(this.fdw);
+  const LogTabView(this.fdw, {super.key});
 
   final FlutterDataWedge fdw;
 
@@ -28,13 +28,13 @@ class LogTabViewState extends State<LogTabView>
     });
   }
 
-  void onScanResult(ScanResult event) {
+  void onScanResult(ScanEvent event) {
     setState(() {
       log.add(_ScanResultLogTile(event));
     });
   }
 
-  void onScannerStatus(ScannerStatus event) {
+  void onScannerStatus(StatusChangeEvent event) {
     setState(() {
       log.add(_ScannerStatusLogTile(event));
     });
@@ -43,19 +43,21 @@ class LogTabViewState extends State<LogTabView>
   @override
   void initState() {
     super.initState();
-    scannerEventSubscription = widget.fdw.onScannerEvent.listen(onScannerEvent);
-    scannerStatusSubscription =
-        widget.fdw.onScannerStatus.listen(onScannerStatus);
-    scanResultSubscription = widget.fdw.onScanResult.listen(onScanResult);
+    // Subscribe to the necessary streams
+    scannerEventSubscription = widget.fdw.scans.listen(onScannerEvent);
+    scanResultSubscription = widget.fdw.scans.listen(onScanResult);
+    scannerStatusSubscription = widget.fdw.status.listen(onScannerStatus);
   }
 
   @override
   void dispose() {
+    // Cancel the subscriptions to avoid memory leaks
     scannerEventSubscription.cancel();
-    scannerStatusSubscription.cancel();
     scanResultSubscription.cancel();
+    scannerStatusSubscription.cancel();
     super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -87,30 +89,31 @@ class _ActionResultLogTile extends StatelessWidget {
 class _ScanResultLogTile extends StatelessWidget {
   _ScanResultLogTile(this.scanResult);
 
-  final ScanResult scanResult;
+  final ScanEvent scanResult;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: Text(scanResult.labelType),
-      subtitle: Text(scanResult.data),
+      title: Text(scanResult.labelType.toString()),
+      subtitle: Text(scanResult.dataString),
     );
   }
 }
 
 class _ScannerStatusLogTile extends StatelessWidget {
-  _ScannerStatusLogTile(this.scannerStatus);
+  const _ScannerStatusLogTile(this.scannerStatus);
 
   final ScannerStatus scannerStatus;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: Text('Scanner Status'),
+      title: const Text('Scanner Status'),
       subtitle: Text(scannerStatus.status.toString()),
     );
   }
 }
+
 
 extension ActionResultLog on ActionResult {
   String get logContent {

@@ -6,6 +6,7 @@ part 'action_result.freezed.dart';
 // https://techdocs.zebra.com/datawedge/latest/guide/api/resultinfo/#example
 @freezed
 class ActionResult with _$ActionResult {
+
   const factory ActionResult({
     required String result,
     required String command,
@@ -13,10 +14,10 @@ class ActionResult with _$ActionResult {
     required Map<String, dynamic>? resultInfo,
   }) = _ActionResult;
 
+  factory ActionResult.fromJson(Map<String, dynamic> json) =>
+      _$ActionResultFromJson(json);
+
   const ActionResult._();
 
   bool get success => result == 'SUCCESS';
-
-  factory ActionResult.fromJson(Map<String, dynamic> json) =>
-      _$ActionResultFromJson(json);
 }

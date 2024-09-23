@@ -1,9 +1,14 @@
-import 'package:flutter_datawedge/src/consts/value_enum.dart';
+// Define your enum
+enum EmptyCommand {
+  empty,
+}
 
-enum EmptyCommand with ValueEnum {
-  empty('');
-
-  final String value;
-
-  const EmptyCommand(this.value);
+// Add the 'value' functionality using an extension
+extension EmptyCommandExtension on EmptyCommand {
+  String get value {
+    switch (this) {
+      case EmptyCommand.empty:
+        return '';
+    }
+  }
 }
