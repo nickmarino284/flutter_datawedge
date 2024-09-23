@@ -380,6 +380,31 @@ enum Decoder {
   us4stateFics,
 }
 
+enum DatawedgeApiTargets {
+  softScanTrigger,
+  scannerPlugin,
+  getProfiles,
+  getActiveProfile,
+  // Add more as needed
+}
+
+extension DatawedgeApiTargetsExtension on DatawedgeApiTargets {
+  static DatawedgeApiTargets? fromString(String command) {
+    switch (command) {
+      case 'softScanTrigger':
+        return DatawedgeApiTargets.softScanTrigger;
+      case 'scannerPlugin':
+        return DatawedgeApiTargets.scannerPlugin;
+      case 'getProfiles':
+        return DatawedgeApiTargets.getProfiles;
+      case 'getActiveProfile':
+        return DatawedgeApiTargets.getActiveProfile;
+      default:
+        return null;
+    }
+  }
+}
+
 /// An application that will trigger the profile
 class AppEntry {
   AppEntry({
@@ -1103,6 +1128,45 @@ class ProfileConfig {
           : null,
       profileEnabled: result[4]! as bool,
       appList: (result[5] as List<Object?>?)?.cast<AppEntry?>(),
+    );
+  }
+}
+
+class ActionResult {
+  ActionResult({
+    required this.success,
+    required this.command,
+    this.message,
+    this.result, // Add result field
+    this.resultInfo,
+  });
+
+  final bool success;
+  final String? message;
+  final String command;
+  final String? result; // Add this for operation result or status
+  final Map<String, dynamic>? resultInfo; // Optional result information
+
+  // Encode method for serialization (if needed)
+  Object encode() {
+    return <Object?>[
+      success,
+      message,
+      command,
+      result,
+      resultInfo,
+    ];
+  }
+
+  // Decode method for deserialization (if needed)
+  static ActionResult decode(Object result) {
+    result as List<Object?>;
+    return ActionResult(
+      success: result[0]! as bool,
+      message: result[1] as String?,
+      command: result[2]! as String,
+      result: result[3] as String?, // Decode result field
+      resultInfo: result[4] as Map<String, dynamic>?,
     );
   }
 }

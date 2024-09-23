@@ -120,10 +120,15 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   }
 
   final _scanEvents = StreamController<ScanEvent>.broadcast();
+  final _actionResults = StreamController<ActionResult>.broadcast();
   final _statusChangeEvents = StreamController<StatusChangeEvent>.broadcast();
+
 
   /// The stream of [ScanEvent]s that are produced by DataWedge
   Stream<ScanEvent> get scans => _scanEvents.stream;
+
+  /// The stream of [ActionResult]s that are produced by DataWedge
+  Stream<ActionResult> get actions => _actionResults.stream;
 
   /// The stream of [StatusChangeEvent]s that are produced by DataWedge
   Stream<StatusChangeEvent> get status => _statusChangeEvents.stream;

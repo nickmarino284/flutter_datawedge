@@ -15,8 +15,8 @@ class LogTabView extends StatefulWidget {
 class LogTabViewState extends State<LogTabView>
     with AutomaticKeepAliveClientMixin<LogTabView> {
   late final StreamSubscription<ActionResult> scannerEventSubscription;
-  late final StreamSubscription<ScanResult> scanResultSubscription;
-  late final StreamSubscription<ScannerStatus> scannerStatusSubscription;
+  late final StreamSubscription<ScanEvent> scanResultSubscription;
+  late final StreamSubscription<StatusChangeEvent> scannerStatusSubscription;
 
   List<Widget> log = [];
 
@@ -36,7 +36,7 @@ class LogTabViewState extends State<LogTabView>
 
   void onScannerStatus(StatusChangeEvent event) {
     setState(() {
-      log.add(_ScannerStatusLogTile(event));
+      log.add(_ScannerStatusLogTile(event as ScannerState));
     });
   }
 
@@ -44,7 +44,7 @@ class LogTabViewState extends State<LogTabView>
   void initState() {
     super.initState();
     // Subscribe to the necessary streams
-    scannerEventSubscription = widget.fdw.scans.listen(onScannerEvent);
+    scannerEventSubscription = widget.fdw.actions.listen(onScannerEvent);
     scanResultSubscription = widget.fdw.scans.listen(onScanResult);
     scannerStatusSubscription = widget.fdw.status.listen(onScannerStatus);
   }
@@ -73,7 +73,7 @@ class LogTabViewState extends State<LogTabView>
 }
 
 class _ActionResultLogTile extends StatelessWidget {
-  _ActionResultLogTile(this.actionResult);
+  const _ActionResultLogTile(this.actionResult);
 
   final ActionResult actionResult;
 
@@ -87,7 +87,7 @@ class _ActionResultLogTile extends StatelessWidget {
 }
 
 class _ScanResultLogTile extends StatelessWidget {
-  _ScanResultLogTile(this.scanResult);
+  const _ScanResultLogTile(this.scanResult);
 
   final ScanEvent scanResult;
 
@@ -103,26 +103,29 @@ class _ScanResultLogTile extends StatelessWidget {
 class _ScannerStatusLogTile extends StatelessWidget {
   const _ScannerStatusLogTile(this.scannerStatus);
 
-  final ScannerStatus scannerStatus;
+  final ScannerState scannerStatus;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       title: const Text('Scanner Status'),
-      subtitle: Text(scannerStatus.status.toString()),
+      subtitle: Text(scannerStatus.toString()),
     );
   }
 }
 
-
 extension ActionResultLog on ActionResult {
   String get logContent {
-    return switch (DatawedgeApiTargets.fromString(this.command)) {
-      DatawedgeApiTargets.softScanTrigger => '${result}',
+    return switch (DatawedgeApiTargetsExtension.fromString(command)) {
+      DatawedgeApiTargets.softScanTrigger => result ?? 'No result',
       DatawedgeApiTargets.scannerPlugin =>
-        result == "SUCCESS" ? '$result' : '${resultInfo!['RESULT_CODE']}',
-      DatawedgeApiTargets.getProfiles => '${resultInfo!['profiles']}',
-      DatawedgeApiTargets.getActiveProfile => '${resultInfo!['activeProfile']}',
+      result == 'SUCCESS' ? result! : resultInfo?['RESULT_CODE']?.toString() ?? 'Unknown result code',
+      DatawedgeApiTargets.getProfiles => resultInfo?['profiles']?.toString() ?? 'No profiles found',
+      DatawedgeApiTargets.getActiveProfile => resultInfo?['activeProfile']?.toString() ?? 'No active profile',
+      _ => 'Unknown command: $command',
     };
   }
 }
+
+
+
