@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datawedge/flutter_datawedge.dart';
 
@@ -14,23 +15,27 @@ void main() {
       theme: ThemeData(
         primarySwatch: Colors.cyan,
       ),
-      home: MyApp(),
+      home: const MyApp(),
     ),
   );
 }
 
 Future<void> dwTest() async {
-  var dataWedge = FlutterDataWedge.instance;
+  final dataWedge = FlutterDataWedge.instance;
 
-  print("Creating profile...");
+  if (kDebugMode) {
+    print('Creating profile...');
+  }
   try {
-    await dataWedge.createProfile("TestFlutter", autoActivate: true);
+    await dataWedge.createProfile('TestFlutter');
   } catch (e) {
-    print("Creating failed...");
+    if (kDebugMode) {
+      print('Creating failed...');
+    }
   }
 
-  var config = ProfileConfig(
-      profileName: "TestFlutter",
+  final config = ProfileConfig(
+      profileName: 'TestFlutter',
       profileEnabled: true,
       configMode: ConfigMode.update,
       barcodeParamters: PluginBarcodeParamters(
@@ -38,14 +43,18 @@ Future<void> dwTest() async {
           enableHardwareTrigger: true,
           enableAimMode: false,
           upcEeanLinearDecode: true,
-          dataBarToUpcEan: true));
+          dataBarToUpcEan: true,
+      ),
+  );
 
   await dataWedge.setConfig(config);
 
-  await dataWedge.enableAllDecoders("TestFlutter");
+  await dataWedge.enableAllDecoders('TestFlutter');
 }
 
 class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
   @override
   _MyAppState createState() => _MyAppState();
 }
@@ -53,7 +62,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late StreamSubscription<ScanEvent> scanSub;
 
-  List<ScanEvent> _scans = [];
+  final List<ScanEvent> _scans = [];
 
   StatusChangeEvent? _status;
 
@@ -66,7 +75,7 @@ class _MyAppState extends State<MyApp> {
     super.initState();
   }
 
-  void setupListeners() async {
+  Future<void> setupListeners() async {
     await FlutterDataWedge.instance.registerForNotifications();
 
     scanSub = FlutterDataWedge.instance.scans.listen((event) {
@@ -99,14 +108,18 @@ class _MyAppState extends State<MyApp> {
       subtitle: Wrap(spacing: 4, children: [
         Chip(
             visualDensity: VisualDensity.compact,
-            label: Text(scan.labelType.name.toString())),
+            label: Text(scan.labelType.name),
+        ),
         Chip(
             visualDensity: VisualDensity.compact,
-            label: Text(scan.decodeMode.name.toString())),
+            label: Text(scan.decodeMode.name),
+        ),
         Chip(
             visualDensity: VisualDensity.compact,
-            label: Text(scan.source.name.toString()))
-      ]),
+            label: Text(scan.source.name),
+        ),
+      ],
+      ),
     );
   }
 
@@ -121,7 +134,7 @@ class _MyAppState extends State<MyApp> {
           BoxShadow(color: Colors.grey.shade400, blurRadius: 10)
         ]),
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -136,18 +149,18 @@ class _MyAppState extends State<MyApp> {
                   FlutterDataWedge.instance.softScanTrigger(on: false);
                 },
                 child: ElevatedButton(
-                  child: Text("Trigger"),
                   onPressed:
                       _status?.newState == ScannerState.waiting ? () {} : null,
+                  child: const Text('Trigger'),
                 ),
               ),
               Row(
                 children: [
-                  Text((_status?.newState.toString() ?? "Unknown"),
+                  Text(_status?.newState.toString() ?? 'Unknown',
                       style: Theme.of(context).textTheme.labelLarge),
                 ],
               ),
-              SizedBox(
+              const SizedBox(
                 height: 8,
               ),
               Row(
@@ -158,10 +171,10 @@ class _MyAppState extends State<MyApp> {
                           ? null
                           : () async =>
                               FlutterDataWedge.instance.enablePlugin(),
-                      child: Text('Enable Scanner'),
+                      child: const Text('Enable Scanner'),
                     ),
                   ),
-                  SizedBox(
+                  const SizedBox(
                     width: 8,
                   ),
                   Expanded(
@@ -170,7 +183,7 @@ class _MyAppState extends State<MyApp> {
                           ? null
                           : () async =>
                               FlutterDataWedge.instance.disablePlugin(),
-                      child: Text('Disable Scanner'),
+                      child: const Text('Disable Scanner'),
                     ),
                   ),
                 ],
@@ -182,10 +195,10 @@ class _MyAppState extends State<MyApp> {
                       onPressed: (_status?.newState == ScannerState.idle)
                           ? () => FlutterDataWedge.instance.resumePlugin()
                           : null,
-                      child: Text('Activate Scanner'),
+                      child: const Text('Activate Scanner'),
                     ),
                   ),
-                  SizedBox(
+                  const SizedBox(
                     width: 8,
                   ),
                   Expanded(
@@ -193,7 +206,7 @@ class _MyAppState extends State<MyApp> {
                       onPressed: (_status?.newState == ScannerState.waiting)
                           ? () => FlutterDataWedge.instance.suspendPlugin()
                           : null,
-                      child: Text('Deactivate Scanner'),
+                      child: const Text('Deactivate Scanner'),
                     ),
                   ),
                 ],
@@ -203,8 +216,8 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       body: ListView.separated(
-        padding: EdgeInsets.only(top: 8),
-        separatorBuilder: (context, n) => Divider(),
+        padding: const EdgeInsets.only(top: 8),
+        separatorBuilder: (context, n) => const Divider(),
         itemBuilder: _buildScan,
         itemCount: _scans.length,
       ),
