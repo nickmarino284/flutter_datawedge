@@ -28,7 +28,7 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   final DataWedgeHostApi _hostApi = DataWedgeHostApi();
 
   static int _instCount = 0;
-  static final _flutterDataWedge = FlutterDataWedge();
+  static final _flutterDataWedge = FlutterDataWedge.instance;
 
   /// Get the singleton instance to this class
   static FlutterDataWedge get instance => _flutterDataWedge;
