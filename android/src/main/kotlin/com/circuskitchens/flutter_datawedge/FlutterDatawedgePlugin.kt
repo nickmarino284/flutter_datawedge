@@ -12,6 +12,10 @@ import androidx.annotation.RequiresApi
 import com.circuskitchens.flutter_datawedge.pigeon.DataWedgeFlutterApi
 import com.circuskitchens.flutter_datawedge.pigeon.DataWedgeHostApi
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.MethodCall
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 
 class FlutterDatawedgePlugin : FlutterPlugin {
 

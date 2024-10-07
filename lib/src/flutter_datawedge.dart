@@ -1,3 +1,4 @@
+// ignore_for_file: lines_longer_than_80_chars
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -22,7 +23,7 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
           'Dont construct this class. Use .instance instead',
         ) {
     _instCount++;
-    DataWedgeFlutterApi.setup(this);
+    DataWedgeFlutterApi.setUp(this);
   }
   final DataWedgeHostApi _hostApi = DataWedgeHostApi();
 
@@ -88,7 +89,7 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   ) async {
     final availableDecoders = <Decoder>[];
     var anyFailures = false;
-    String error = '';
+    var error = '';
 
     for (final decoder in Decoder.values) {
       try {

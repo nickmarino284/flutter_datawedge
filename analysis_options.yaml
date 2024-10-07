@@ -11,6 +11,8 @@ analyzer:
     strict-raw-types: true
   errors:
     invalid_annotation_target: ignore
+    lines_longer_than_80_chars: ignore
+    require_trailing_commas: ignore
 
 linter:
   rules:

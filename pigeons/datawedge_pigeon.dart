@@ -1,5 +1,3 @@
-//ignore_for_file: avoid_positional_boolean_parameters
-
 import 'package:pigeon/pigeon.dart';
 
 /// Mode for profile creations
@@ -361,6 +359,13 @@ enum SwitchOnEvent { disabled, onConnect, onDisconnect, connectOrDisconnect }
 
 enum PresentationModeSensitivity { high, medium, low }
 
+enum DatawedgeApiTargets {
+  softScanTrigger,
+  scannerPlugin,
+  getProfiles,
+  getActiveProfile,
+}
+
 class PluginConfig {
   PluginConfig({
     required this.pluginName,
@@ -405,6 +410,19 @@ class ScanEvent {
   String dataString;
   List<Uint8List?> decodeData;
   DecodeMode decodeMode;
+}
+
+class ActionResult {
+  ActionResult({
+    required this.result,
+    required this.resultInfo,
+    required this.message,
+    this.command,
+  });
+  bool result;
+  Map<String, Object>? resultInfo;
+  String message;
+  String? command;
 }
 
 class StatusChangeEvent {

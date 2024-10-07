@@ -1,3 +1,5 @@
+// ignore_for_file: lines_longer_than_80_chars
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -80,8 +82,8 @@ class _ActionResultLogTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: Text(actionResult.command.split('.').last),
-      subtitle: Text(actionResult.logContent),
+      title: Text(actionResult.command!.split('.').last),
+      subtitle: Text(actionResult.logContent.toString()),
     );
   }
 }
@@ -115,17 +117,44 @@ class _ScannerStatusLogTile extends StatelessWidget {
 }
 
 extension ActionResultLog on ActionResult {
-  String get logContent {
-    return switch (DatawedgeApiTargetsExtension.fromString(command)) {
-      DatawedgeApiTargets.softScanTrigger => result ?? 'No result',
+  Object get logContent {
+    return switch (DatawedgeApiTargetsExtension.fromString(command!)) {
+      DatawedgeApiTargets.softScanTrigger => result,
       DatawedgeApiTargets.scannerPlugin =>
-      result == 'SUCCESS' ? result! : resultInfo?['RESULT_CODE']?.toString() ?? 'Unknown result code',
-      DatawedgeApiTargets.getProfiles => resultInfo?['profiles']?.toString() ?? 'No profiles found',
-      DatawedgeApiTargets.getActiveProfile => resultInfo?['activeProfile']?.toString() ?? 'No active profile',
+      result == 'SUCCESS'
+          ? result!
+          : resultInfo?['RESULT_CODE']?.toString() ?? 'Unknown result code',
+      DatawedgeApiTargets.getProfiles =>
+      resultInfo?['profiles']?.toString() ?? 'No profiles found',
+      DatawedgeApiTargets.getActiveProfile =>
+      resultInfo?['activeProfile']?.toString() ?? 'No active profile',
       _ => 'Unknown command: $command',
     };
   }
+
 }
+
+
+extension DatawedgeApiTargetsExtension on String {
+  DatawedgeApiTargets toDatawedgeApiTarget() {
+    switch (this) {
+      case 'softScanTrigger':
+        return DatawedgeApiTargets.softScanTrigger;
+      case 'scannerPlugin':
+        return DatawedgeApiTargets.scannerPlugin;
+      case 'getProfiles':
+        return DatawedgeApiTargets.getProfiles;
+      case 'getActiveProfile':
+        return DatawedgeApiTargets.getActiveProfile;
+    // Add other cases as needed
+      default:
+        throw Exception('Unknown command: $this');
+    }
+  }
+
+  static fromString(String command) {}
+}
+
 
 
 

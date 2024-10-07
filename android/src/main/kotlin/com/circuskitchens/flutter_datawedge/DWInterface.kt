@@ -8,7 +8,6 @@ import android.content.IntentFilter
 import android.os.Bundle
 import android.util.Log
 import com.circuskitchens.flutter_datawedge.pigeon.*
-import java.util.function.IntConsumer
 
 
 enum class DWCommand(val cmd: String) {
@@ -201,10 +200,12 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
                             else -> throw Error("Unknown decode mode")
                         }
                     )
-                ) { ->
-
+                ) { result ->
+                    when (result.isSuccess) {
+                        true -> println("Operation succeeded")
+                        false -> println("Operation failed with exception: ${result.exceptionOrNull()}")
+                    }
                 }
-
 
             }
 
@@ -525,9 +526,10 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
         configBundle.putString("PROFILE_ENABLED", config.profileEnabled.toString())
         configBundle.putString(
             "CONFIG_MODE", when (config.configMode) {
-                ConfigMode.CREATEIFNOTEXISTS -> "CREATE_IF_NOT_EXIST"
+                ConfigMode.CREATE_IF_NOT_EXISTS -> "CREATE_IF_NOT_EXIST"
                 ConfigMode.UPDATE -> "UPDATE"
                 ConfigMode.OVERWRITE -> "OVERWRITE"
+                else -> "UNKNOWN"
             }
         )
 

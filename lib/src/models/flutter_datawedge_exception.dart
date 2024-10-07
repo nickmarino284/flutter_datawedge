@@ -1,3 +1,5 @@
+// ignore_for_file: lines_longer_than_80_chars, require_trailing_commas
+
 class FlutterDatawedgeException implements Exception {
   FlutterDatawedgeException(this.message);
   
