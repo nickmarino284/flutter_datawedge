@@ -1,6 +1,8 @@
 
 import 'package:flutter_datawedge/flutter_datawedge.dart';
 
+import '../flutter_datawedge.dart';
+
 extension DatawedgeApiTargetsExtension on String {
   DatawedgeApiTargets toDatawedgeApiTarget() {
     switch (this) {

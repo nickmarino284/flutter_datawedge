@@ -7,6 +7,9 @@ import 'package:flutter_datawedge/logger.dart';
 import 'package:flutter_datawedge/src/pigeon.dart';
 import 'package:flutter_datawedge/src/result.dart';
 
+import '../flutter_datawedge.dart';
+import '../logger.dart';
+
 /// Thrown if the profile we try to create already exists
 class ProfileExistsError extends Error {}
 
@@ -28,7 +31,7 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   final DataWedgeHostApi _hostApi = DataWedgeHostApi();
 
   static int _instCount = 0;
-  static final _flutterDataWedge = FlutterDataWedge.instance;
+  static final _flutterDataWedge = FlutterDataWedge();
 
   /// Get the singleton instance to this class
   static FlutterDataWedge get instance => _flutterDataWedge;
@@ -135,26 +138,26 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   Stream<StatusChangeEvent> get status => _statusChangeEvents.stream;
 
   @override
-  @protected
+  // @protected
   void onProfileChange() {
     logger.debug('Profile has changed');
   }
 
   @override
-  @protected
+  // @protected
   void onConfigUpdate() {
     logger.debug('Data wedge notified of configuration change');
   }
 
   @override
-  @protected
+  // @protected
   void onScanResult(ScanEvent scanEvent) {
     logger.debug('Scan result: $scanEvent');
     _scanEvents.add(scanEvent);
   }
 
   @override
-  @protected
+  // @protected
   void onScannerStatusChanged(StatusChangeEvent statusEvent) {
     logger.debug('Scanner status changed: ${statusEvent.newState}');
     _statusChangeEvents.add(statusEvent);

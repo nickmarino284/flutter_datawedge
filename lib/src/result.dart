@@ -1,5 +1,7 @@
 import 'package:flutter_datawedge/src/exceptions.dart';
 
+import '../flutter_datawedge.dart';
+
 class CmdResult<T> {
   CmdResult.success(this.data) : error = null;
   CmdResult.failure(this.error) : data = null;
