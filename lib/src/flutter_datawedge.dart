@@ -65,6 +65,14 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
           intentAction: '$packageName.SCAN_EVENT',
           intentDelivery: IntentDelivery.broadcast,
         ),
+        barcodeParamters: PluginBarcodeParamters(
+            decoderConfig: [
+              DecoderConfigItem(
+                decoder: Decoder.code93,
+                enabled: true,
+              ),
+            ]
+        ),
       );
 
       await setConfig(config);
