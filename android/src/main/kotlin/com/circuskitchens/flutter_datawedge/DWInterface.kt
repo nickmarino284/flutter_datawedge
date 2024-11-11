@@ -336,16 +336,28 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
     ) {
         sendCommand(DWCommand.CreateProfile, profileName) { result ->
             if (result.isFailure) {
-                callback(Result.failure(result.exceptionOrNull()!!))
+                val exception = result.exceptionOrNull()
+                if (exception != null) {
+                    callback(Result.failure(exception))
+                } else {
+                    callback(Result.failure(Exception("Unknown error occurred during profile creation.")))
+                }
             } else {
                 val cmd = result.getOrThrow()
                 when (cmd.result) {
-                    "SUCCESS" -> callback(Result.success(Unit))
-                    else -> callback(Result.failure(Error(cmd.result)))
+                    "SUCCESS" -> {
+                        Log.d("DWInterface", "Profile creation successful: $profileName")
+                        callback(Result.success(Unit))
+                    }
+                    else -> {
+                        Log.e("DWInterface", "Profile creation failed: ${cmd.result}")
+                        callback(Result.failure(Exception("Failed to create profile: ${cmd.result}")))
+                    }
                 }
             }
         }
     }
+
 
     override fun suspendPlugin(callback: (Result<String>) -> Unit) {
         sendCommandString(DWCommand.SetPluginState, "SUSPEND_PLUGIN") { result ->
