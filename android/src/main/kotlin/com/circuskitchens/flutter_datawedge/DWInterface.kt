@@ -150,13 +150,15 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
         }
     }
 
-    private fun shouldProcessStatus(status: String): Boolean {
-        return if (status == lastScannerStatus) {
-            false
-        } else {
-            lastScannerStatus = status
-            true
+    private fun shouldProcessStatus(status: String?): Boolean {
+        // If the status is null or hasn't changed, do not process it
+        if (status == null || status == lastScannerStatus) {
+            return false
         }
+
+        // Update the last processed status
+        lastScannerStatus = status
+        return true
     }
 
     private fun mapScannerState(status: String): ScannerState {
