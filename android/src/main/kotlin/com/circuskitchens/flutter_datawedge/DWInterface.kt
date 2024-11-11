@@ -1,14 +1,15 @@
 package com.circuskitchens.flutter_datawedge
 
-
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import androidx.annotation.RequiresApi
 import com.circuskitchens.flutter_datawedge.pigeon.*
-
 
 enum class DWCommand(val cmd: String) {
     CreateProfile("com.symbol.datawedge.api.CREATE_PROFILE"),
@@ -19,17 +20,13 @@ enum class DWCommand(val cmd: String) {
     SoftScanTrigger("com.symbol.datawedge.api.SOFT_SCAN_TRIGGER"),
 }
 
-
 enum class DWEvent(val value: String) {
     ResultAction("com.symbol.datawedge.api.RESULT_ACTION"),
     Action("com.symbol.datawedge.api.ACTION"),
     ResultNotification("com.symbol.datawedge.api.NOTIFICATION_ACTION")
-
 }
 
 enum class DWKeys(val value: String) {
-
-
     ApplicationName("com.symbol.datawedge.api.APPLICATION_NAME"),
     NotificationType("com.symbol.datawedge.api.NOTIFICATION_TYPE"),
     ScannerStatus("SCANNER_STATUS"),
@@ -50,17 +47,32 @@ class CommandResult(
 class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : BroadcastReceiver(),
     DataWedgeHostApi {
 
+    private var isReceiverRegistered = false
 
     // Registers a broadcast receive that listens to datawedge intents
     fun setupBroadcastReceiver() {
-        val intentFilter = IntentFilter()
-        intentFilter.addAction(context.packageName + ".SCAN_EVENT")
-        intentFilter.addAction(DWEvent.ResultAction.value)
-        intentFilter.addAction(DWEvent.Action.value)
-        intentFilter.addAction(DWEvent.ResultNotification.value)
-        intentFilter.addCategory(Intent.CATEGORY_DEFAULT)
-        context.registerReceiver(this, intentFilter)
+        if (isReceiverRegistered) {
+            Log.d("DWInterface", "BroadcastReceiver is already registered.")
+            return
+        }
+
+        val intentFilter = IntentFilter().apply {
+            addAction(context.packageName + ".SCAN_EVENT")
+            addAction(DWEvent.ResultAction.value)
+            addAction(DWEvent.Action.value)
+            addAction(DWEvent.ResultNotification.value)
+            addCategory(Intent.CATEGORY_DEFAULT)
+        }
+
+        try {
+            context.registerReceiver(this, intentFilter)
+            isReceiverRegistered = true
+            Log.d("DWInterface", "BroadcastReceiver registered successfully.")
+        } catch (e: Exception) {
+            Log.e("DWInterface", "Error registering BroadcastReceiver: ${e.message}")
+        }
     }
+
 
 
     // A map that contains the callbacks that are associated to the command identifier
@@ -98,8 +110,6 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
         const val EXTRA_COMMAND_IDENTIFIER = "COMMAND_IDENTIFIER"
 
         // DataWedge Actions
-
-
         const val ACTION_GET_SCANNER_STATUS = "com.symbol.datawedge.api.GET_SCANNER_STATUS"
         const val ACTION_SET_CONFIG = "com.symbol.datawedge.api.SET_CONFIG"
 
@@ -124,60 +134,95 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
         ).append(" ")
         return stringBuilder.toString()
     }
+
     // Called whenever an intent is passed to the broadcast receiver
+    private var lastScannerStatusTime: Long = 0
+    private val debounceTime = 20000 // 2 seconds
+    private var lastScannerStatus: String? = null
+
+    private fun isDebounced(): Boolean {
+        val currentTime = System.currentTimeMillis()
+        return if (currentTime - lastScannerStatusTime < debounceTime) {
+            true
+        } else {
+            lastScannerStatusTime = currentTime
+            false
+        }
+    }
+
+    private fun shouldProcessStatus(status: String): Boolean {
+        return if (status == lastScannerStatus) {
+            false
+        } else {
+            lastScannerStatus = status
+            true
+        }
+    }
+
+    private fun mapScannerState(status: String): ScannerState {
+        return when (status) {
+            "WAITING" -> ScannerState.WAITING
+            "DISABLED" -> ScannerState.DISABLED
+            "SCANNING" -> ScannerState.SCANNING
+            "IDLE" -> ScannerState.IDLE
+            "CONNECTED" -> ScannerState.CONNECTED
+            "DISCONNECTED" -> ScannerState.DISCONNECTED
+            else -> throw IllegalArgumentException("Unknown scanner state: $status")
+        }
+    }
 
 
-    override fun onReceive(p0: Context?, intent: Intent?) {
-
+    override fun onReceive(context: Context?, intent: Intent?) {
         if (intent == null) {
+            Log.e("DWInterface", "Received null intent")
             return
         }
 
         val action = intent.action
-        val b = intent.extras
+        val extras = intent.extras ?: run {
+            Log.e("DWInterface", "Received intent with null extras")
+            return
+        }
 
+        val isDebug = 0 != (context?.applicationInfo?.flags?.and(ApplicationInfo.FLAG_DEBUGGABLE) ?: 0)
+        if (isDebug) {
+            Log.d("DWInterface", "Received action: $action")
+        }
 
+        if (action == null) {
+            Log.e("DWInterface", "Received intent with null action")
+            return
+        }
 
         when (action) {
+
             (DWEvent.ResultAction.value) -> {
+                val result = intent.getStringExtra(DWInterface.EXTRA_RESULT) ?: "UNKNOWN_RESULT"
+                val command = intent.getStringExtra(DWInterface.EXTRA_COMMAND) ?: "UNKNOWN_COMMAND"
+                val commandIdentifier = intent.getStringExtra(DWInterface.EXTRA_COMMAND_IDENTIFIER) ?: ""
 
+                Log.d("DWInterface", commandIdentifier)
 
-                val result = intent.getStringExtra(DWInterface.EXTRA_RESULT) ?: ""
-                val command = intent.getStringExtra(DWInterface.EXTRA_COMMAND) ?: ""
-                val commandIdentifier =
-                    intent.getStringExtra(DWInterface.EXTRA_COMMAND_IDENTIFIER) ?: ""
+                if (commandIdentifier.isNotBlank() && callbacks.containsKey(commandIdentifier)) {
 
-                // Callback the function we have stored in our hashmap
-                if (callbacks.containsKey(commandIdentifier)) {
-                    callbacks[commandIdentifier]?.let {
-                        it(
-                            Result.success(
-                                CommandResult(
-                                    command = command,
-                                    result = result,
-                                    commandIdentifier = commandIdentifier,
-                                    extras = intent.extras!!
-                                )
-                            )
-                        )
-                    }
-                    // Remove the pending command as it is resolved now
-                    callbacks.remove(commandIdentifier)
                 } else {
-                    Log.e("DWInterface", "Unknown command was returned")
+                    Log.e("DWInterface", "Unknown command was returned: $commandIdentifier")
                 }
-
             }
 
-            (context.packageName + ".SCAN_EVENT") -> {
-                //  A barcode has been scanned
-                val source = intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_SOURCE) ?: ""
-                val scanData =
-                    intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_DATA_STRING) ?: ""
-                val labelType =
-                    intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_LABEL_TYPE) ?: ""
-                val decodedData =
-                    intent.getSerializableExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_DECODE_DATA) as (ArrayList<ByteArray>?)
+            (context?.packageName + ".SCAN_EVENT") -> {
+                val source = intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_SOURCE) ?: "UNKNOWN_SOURCE"
+                val scanData = intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_DATA_STRING) ?: ""
+                val labelType = intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_LABEL_TYPE) ?: ""
+                val decodedData: List<ByteArray> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val byteArray = intent.getByteArrayExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_DECODE_DATA)
+                    byteArray?.let { listOf(it) } ?: listOf()
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getSerializableExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_DECODE_DATA) as? List<ByteArray> ?: listOf()
+                }
+
+
                 val decodeMode = intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_DECODE_MODE)
 
                 flutterApi.onScanResult(
@@ -190,57 +235,63 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
                             "serial" -> ScanSource.SERIAL
                             "voice" -> ScanSource.VOICE
                             "rfid" -> ScanSource.RFID
-                            else -> throw Error("Unknown source")
+                            else -> {
+                                Log.e("DWInterface", "Unknown source: $source. This action will not be processed.")
+                                return
+                            }
                         },
                         dataString = scanData,
-                        decodeData = decodedData?.toList() ?: listOf<ByteArray>(),
+                        decodeData = decodedData,
                         decodeMode = when (decodeMode) {
                             "multiple_decode" -> DecodeMode.MULTIPLE
                             "single_decode" -> DecodeMode.SINGLE
-                            else -> throw Error("Unknown decode mode")
+                            else -> {
+                                Log.e("DWInterface", "Unknown decode mode received: $decodeMode. Skipping this decode mode.")
+                                return
+                            }
                         }
                     )
                 ) { result ->
-                    when (result.isSuccess) {
-                        true -> println("Operation succeeded")
-                        false -> println("Operation failed with exception: ${result.exceptionOrNull()}")
+                    if (result.isSuccess) {
+                        Log.d("DWInterface", "Operation succeeded")
+                    } else {
+                        Log.e("DWInterface", "Operation failed with exception: ${result.exceptionOrNull()}")
                     }
                 }
-
             }
 
             (DWEvent.ResultNotification.value) -> {
-
+                if (isDebounced()) {
+                    Log.d("DWInterface", "Skipping repeated scanner status update due to debounce")
+                    return
+                }
 
                 if (!intent.hasExtra(EXTRA_RESULT_NOTIFICATION)) {
                     return
                 }
                 val notification = intent.getBundleExtra(EXTRA_RESULT_NOTIFICATION) ?: return
-
-
-                val keys = notification.keySet()
-
                 val notificationType = notification.getString(EXTRA_KEY_NOTIFICATION_TYPE) ?: return
 
                 Log.d("Notification", notificationType)
 
                 when (notificationType) {
                     EXTRA_KEY_VALUE_SCANNER_STATUS -> {
-                        val status =
-                            notification.getString(DWInterface.EXTRA_KEY_VALUE_NOTIFICATION_STATUS)
+                        val status = notification.getString(DWInterface.EXTRA_KEY_VALUE_NOTIFICATION_STATUS) ?: "UNKNOWN_STATUS"
+
+                        if (!shouldProcessStatus(status)) {
+                            Log.d("DWInterface", "Skipping repeated scanner status update: $status")
+                            return
+                        }
+
+                        val scannerState = try {
+                            mapScannerState(status)
+                        } catch (e: IllegalArgumentException) {
+                            Log.e("DWInterface", e.message.toString())
+                            return
+                        }
 
                         flutterApi.onScannerStatusChanged(
-                            StatusChangeEvent(
-                                newState = when (status) {
-                                    "WAITING" -> ScannerState.WAITING
-                                    "DISABLED" -> ScannerState.DISABLED
-                                    "SCANNING" -> ScannerState.SCANNING
-                                    "IDLE" -> ScannerState.IDLE
-                                    "CONNECTED" -> ScannerState.CONNECTED
-                                    "DISCONNECTED" -> ScannerState.DISCONNECTED
-                                    else -> throw Error("Unknown scanner state")
-                                }
-                            )
+                            StatusChangeEvent(newState = scannerState)
                         ) { }
                     }
 
@@ -249,28 +300,31 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
                     }
 
                     EXTRA_KEY_VALUE_CONFIGURATION_UPDATE -> {
-                        flutterApi.onConfigUpdate {}
-
+                        flutterApi.onConfigUpdate { }
                     }
-
-
                 }
             }
-
-
         }
-
-
     }
+
+
+
 
     // Clear all callbacks to prevent holding unresolvable references and unregister the broadcast receiver
     fun dispose() {
-        for (callback in callbacks) {
-            callback.value(Result.failure(Error("DataWedge interface was disposed")))
+        if (isReceiverRegistered) {
+            try {
+                context.unregisterReceiver(this)
+                isReceiverRegistered = false
+                Log.d("DWInterface", "BroadcastReceiver successfully unregistered.")
+            } catch (e: IllegalArgumentException) {
+                Log.e("DWInterface", "Receiver not registered or already unregistered: ${e.message}")
+            }
+        } else {
+            Log.d("DWInterface", "BroadcastReceiver was not registered, skipping unregistration.")
         }
-
-        context.unregisterReceiver(this)
     }
+
 
 
     // from https://stackoverflow.com/questions/46943860/idiomatic-way-to-generate-a-random-alphanumeric-string-in-kotlin
@@ -437,9 +491,12 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
 
         val params = Bundle()
 
+        Log.d("ApplicationName", DWKeys.ApplicationName.value)
+        Log.d("NotificationType", DWKeys.NotificationType.value)
+        Log.d("ScannerStatus", DWKeys.ScannerStatus.value)
+
         params.putString(DWKeys.ApplicationName.value, getPackageIdentifer())
         params.putString(DWKeys.NotificationType.value, DWKeys.ScannerStatus.value)
-
 
         sendCommandBundle(DWCommand.RegisterForNotification, params) { res ->
             // This command never returns
