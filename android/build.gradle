@@ -2,7 +2,7 @@ group 'com.circuskitchens.flutter_datawedge'
 version '1.0-SNAPSHOT'
 
 buildscript {
-    ext.kotlin_version = '1.9.0'
+    ext.kotlin_version = '2.1.0'
     repositories {
         google()
         mavenCentral()
@@ -74,5 +74,5 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'androidx.annotation:annotation-jvm:1.9.1'
     implementation 'com.google.firebase:firebase-perf-ktx:21.0.2'
-    implementation 'io.flutter:flutter_embedding_debug:1.0.0'
+    implementation 'io.flutter:flutter_embedding_debug:4.0.0'
 }
