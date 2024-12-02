@@ -45,7 +45,16 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   }) async {
     assert(profileName.isNotEmpty, 'Profile name cannot be empty');
 
-    await _hostApi.createProfile(profileName);
+    try {
+      await _hostApi.createProfile(profileName);
+    }
+    catch (e) {
+      if (e.toString().contains('already exists')) {
+        throw ProfileExistsError();
+      }
+    }
+
+
 
     if (autoActivate) {
       final packageName = await _hostApi.getPackageIdentifer();
