@@ -1,5 +1,6 @@
 import 'package:flutter_datawedge/flutter_datawedge.dart';
 
+import '../flutter_datawedge.dart';
 
 /// List of decoders available on the TC58
 List<Decoder> decodersAvailableTC58 = [
