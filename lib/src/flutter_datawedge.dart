@@ -7,8 +7,6 @@ import 'package:flutter_datawedge/logger.dart';
 import 'package:flutter_datawedge/src/pigeon.dart';
 import 'package:flutter_datawedge/src/result.dart';
 
-import '../flutter_datawedge.dart';
-import '../logger.dart';
 
 /// Thrown if the profile we try to create already exists
 class ProfileExistsError extends Error {}
@@ -54,8 +52,6 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
       // }
       logger.error('Error creating profile: $e', StackTrace.current);
     }
-
-
 
     if (autoActivate) {
       final packageName = await _hostApi.getPackageIdentifer();
