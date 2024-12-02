@@ -75,5 +75,5 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'androidx.annotation:annotation-jvm:1.9.1'
     implementation 'com.google.firebase:firebase-perf-ktx:21.0.2'
-//    implementation 'io.flutter:flutter_embedding_debug:1.0.0'
+    implementation 'io.flutter:flutter_embedding_debug:1.0.0'
 }
