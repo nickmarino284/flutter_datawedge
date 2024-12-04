@@ -26,6 +26,8 @@ class FlutterDatawedgePlugin : FlutterPlugin {
         val api = DataWedgeFlutterApi(flutterPluginBinding.binaryMessenger)
         dwInterface = DWInterface(flutterPluginBinding.applicationContext, api)
         flutterApi = api
+        Log.d("flutterApi", api.toString())
+        Log.d("flutterPluginBinding.binaryMessenger", flutterPluginBinding.binaryMessenger.toString())
         DataWedgeHostApi.setUp(flutterPluginBinding.binaryMessenger, dwInterface)
         dwInterface?.setupBroadcastReceiver()
     }

@@ -263,10 +263,10 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
             }
 
             (DWEvent.ResultNotification.value) -> {
-                if (isDebounced()) {
-                    Log.d("DWInterface", "Skipping repeated scanner status update due to debounce")
-                    return
-                }
+//                if (isDebounced()) {
+//                    Log.d("DWInterface", "Skipping repeated scanner status update due to debounce")
+//                    return
+//                }
 
                 if (!intent.hasExtra(EXTRA_RESULT_NOTIFICATION)) {
                     return
