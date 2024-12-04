@@ -12,9 +12,7 @@ class ButtonTabView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.max,
         children: [
           Row(
             children: [

@@ -49,9 +49,9 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
       await _hostApi.createProfile(profileName);
     }
     catch (e) {
-      // if (e.toString().contains('already exists')) {
-      //   throw ProfileExistsError();
-      // }
+      if (e.toString().contains('already exists')) {
+        throw ProfileExistsError();
+      }
       logger.error('Error creating profile: $e', StackTrace.current);
     }
 

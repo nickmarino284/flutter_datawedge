@@ -25,9 +25,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   freezed: ^2.5.7
-  json_serializable: ^6.8.0
-  lints: ^4.0.0
-  pigeon: ^22.6.2
+  json_serializable: ^6.9.0
+  lints: ^5.0.0
+  pigeon: ^22.6.4
   very_good_analysis: ^6.0.0
 
 flutter:

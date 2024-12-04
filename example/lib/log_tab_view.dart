@@ -121,8 +121,8 @@ extension ActionResultLog on ActionResult {
     return switch (DatawedgeApiTargetsExtension.fromString(command!)) {
       DatawedgeApiTargets.softScanTrigger => result,
       DatawedgeApiTargets.scannerPlugin =>
-      result == 'SUCCESS'
-          ? result!
+      result.toString() == 'SUCCESS'
+          ? result
           : resultInfo?['RESULT_CODE']?.toString() ?? 'Unknown result code',
       DatawedgeApiTargets.getProfiles =>
       resultInfo?['profiles']?.toString() ?? 'No profiles found',
