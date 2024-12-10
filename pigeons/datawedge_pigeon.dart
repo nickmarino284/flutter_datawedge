@@ -436,6 +436,7 @@ abstract class DataWedgeFlutterApi {
   void onScanResult(ScanEvent scanEvent);
   void onProfileChange();
   void onConfigUpdate();
+  void onCommandResult(ActionResult result);
 }
 
 @HostApi()

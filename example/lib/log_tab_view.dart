@@ -22,7 +22,7 @@ class LogTabViewState extends State<LogTabView>
 
   List<Widget> log = [];
 
-  // TODO make display of logs more pretty
+  //:TODO make display of logs more pretty
 
   void onScannerEvent(ActionResult event) {
     setState(() {

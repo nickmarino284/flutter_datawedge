@@ -5,7 +5,7 @@ homepage: https://github.com/circus-kitchens/flutter_datawedge
 repository: https://github.com/circus-kitchens/flutter_datawedge
 
 environment:
-  sdk: ">=3.4.0 <4.0.0"
+  sdk: ">=3.0.0 <4.0.0"
   flutter: ">=3.13.1"
 
 dependencies:
@@ -27,7 +27,7 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.9.0
   lints: ^5.0.0
-  pigeon: ^22.6.4
+  pigeon: ^22.7.0
   very_good_analysis: ^6.0.0
 
 flutter:

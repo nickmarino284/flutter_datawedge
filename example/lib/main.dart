@@ -1,13 +1,10 @@
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datawedge/flutter_datawedge.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  dwTest();
 
   runApp(
     MaterialApp(
@@ -20,7 +17,7 @@ void main() {
   );
 }
 
-Future<void> dwTest() async {
+Future<void> dwTest(BuildContext context) async {
   final dataWedge = FlutterDataWedge.instance;
 
   if (kDebugMode) {
@@ -28,28 +25,51 @@ Future<void> dwTest() async {
   }
   try {
     await dataWedge.createProfile('TestFlutter');
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile created successfully')),
+      );
+    }
   } catch (e) {
     if (kDebugMode) {
-      print('Creating failed...');
+      print('Creating profile failed: $e');
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating profile: $e')),
+      );
     }
   }
 
   final config = ProfileConfig(
-      profileName: 'TestFlutter',
-      profileEnabled: true,
-      configMode: ConfigMode.update,
-      barcodeParamters: PluginBarcodeParamters(
-          scannerSelection: ScannerIdentifer.auto,
-          enableHardwareTrigger: true,
-          enableAimMode: false,
-          upcEeanLinearDecode: true,
-          dataBarToUpcEan: true,
-      ),
+    profileName: 'TestFlutter',
+    profileEnabled: true,
+    configMode: ConfigMode.update,
+    barcodeParamters: PluginBarcodeParamters(
+      scannerSelection: ScannerIdentifer.auto,
+      enableHardwareTrigger: true,
+      enableAimMode: true,
+      upcEeanLinearDecode: true,
+      dataBarToUpcEan: true,
+    ),
   );
 
   await dataWedge.setConfig(config);
 
-  await dataWedge.enableAllDecoders('TestFlutter');
+  try {
+    await dataWedge.enableAllDecoders('TestFlutter');
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All decoders enabled')),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error enabling decoders: $e')),
+      );
+    }
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -61,22 +81,23 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late StreamSubscription<ScanEvent> scanSub;
-
   final List<ScanEvent> _scans = [];
-
   StatusChangeEvent? _status;
-
   late StreamSubscription<StatusChangeEvent> statusSub;
 
   @override
   void initState() {
-    setupListeners();
-
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await dwTest(context);
+    });
+    setupListeners();
   }
 
   Future<void> setupListeners() async {
-    await FlutterDataWedge.instance.registerForNotifications();
+    // await FlutterDataWedge.instance.createProfile('TestFlutter');
+    // await FlutterDataWedge.instance.registerForNotifications();
+    // await FlutterDataWedge.instance.enablePlugin();
 
     scanSub = FlutterDataWedge.instance.scans.listen((event) {
       setState(() {
@@ -105,20 +126,22 @@ class _MyAppState extends State<MyApp> {
         scan.dataString,
         maxLines: 2,
       ),
-      subtitle: Wrap(spacing: 4, children: [
-        Chip(
+      subtitle: Wrap(
+        spacing: 4,
+        children: [
+          Chip(
             visualDensity: VisualDensity.compact,
             label: Text(scan.labelType.name),
-        ),
-        Chip(
+          ),
+          Chip(
             visualDensity: VisualDensity.compact,
             label: Text(scan.decodeMode.name),
-        ),
-        Chip(
+          ),
+          Chip(
             visualDensity: VisualDensity.compact,
             label: Text(scan.source.name),
-        ),
-      ],
+          ),
+        ],
       ),
     );
   }
@@ -150,19 +173,19 @@ class _MyAppState extends State<MyApp> {
                 },
                 child: ElevatedButton(
                   onPressed:
-                      _status?.newState == ScannerState.waiting ? () {} : null,
+                  _status?.newState == ScannerState.waiting ? () {} : null,
                   child: const Text('Trigger'),
                 ),
               ),
               Row(
                 children: [
-                  Text(_status?.newState.toString() ?? 'Unknown',
-                      style: Theme.of(context).textTheme.labelLarge),
+                  Text(
+                    _status?.newState.toString() ?? 'Unknown',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
                 ],
               ),
-              const SizedBox(
-                height: 8,
-              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -170,19 +193,17 @@ class _MyAppState extends State<MyApp> {
                       onPressed: _status?.newState != ScannerState.disabled
                           ? null
                           : () async =>
-                              FlutterDataWedge.instance.enablePlugin(),
+                          FlutterDataWedge.instance.enablePlugin(),
                       child: const Text('Enable Scanner'),
                     ),
                   ),
-                  const SizedBox(
-                    width: 8,
-                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: _status?.newState == ScannerState.disabled
                           ? null
                           : () async =>
-                              FlutterDataWedge.instance.disablePlugin(),
+                          FlutterDataWedge.instance.disablePlugin(),
                       child: const Text('Disable Scanner'),
                     ),
                   ),
@@ -198,9 +219,7 @@ class _MyAppState extends State<MyApp> {
                       child: const Text('Activate Scanner'),
                     ),
                   ),
-                  const SizedBox(
-                    width: 8,
-                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: (_status?.newState == ScannerState.waiting)
