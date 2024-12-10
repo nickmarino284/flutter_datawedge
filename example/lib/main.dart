@@ -10,7 +10,18 @@ void main() {
     MaterialApp(
       title: 'Flutter DataWedge Example',
       theme: ThemeData(
-        primarySwatch: Colors.cyan,
+        canvasColor: Colors.blue.shade200,
+        cardColor: Colors.blue.shade100,
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.blueGrey[100],
+        ),
+        cardTheme: CardTheme(
+          color: Colors.blueGrey[200],
+        ),
+        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blueGrey),
+        dialogTheme: DialogTheme(
+          backgroundColor: Colors.blueGrey[800],
+        ),
       ),
       home: const MyApp(),
     ),
@@ -95,10 +106,6 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> setupListeners() async {
-    // await FlutterDataWedge.instance.createProfile('TestFlutter');
-    // await FlutterDataWedge.instance.registerForNotifications();
-    // await FlutterDataWedge.instance.enablePlugin();
-
     scanSub = FlutterDataWedge.instance.scans.listen((event) {
       setState(() {
         _scans.add(event);

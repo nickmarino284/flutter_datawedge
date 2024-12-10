@@ -5,7 +5,7 @@
 import 'dart:async';
 import 'dart:typed_data' show Float64List, Int32List, Int64List, Uint8List;
 
-import 'package:flutter/foundation.dart' show ReadBuffer, WriteBuffer;
+import 'package:flutter/foundation.dart' show ReadBuffer, WriteBuffer, kDebugMode;
 import 'package:flutter/services.dart';
 
 PlatformException _createConnectionError(String channelName) {
@@ -1660,8 +1660,14 @@ class DataWedgeHostApi {
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
+    if (kDebugMode) {
+      print('Sending data to native: $profileName');
+    }
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[profileName]) as List<Object?>?;
+    await pigeonVar_channel.send(<Object?>[profileName]) as List<Object?>?;
+    if (kDebugMode) {
+      print('Response from native: $pigeonVar_replyList');
+    }
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {

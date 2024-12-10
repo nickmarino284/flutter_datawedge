@@ -8,263 +8,581 @@ import android.os.Bundle
 import android.util.Log
 import com.circuskitchens.flutter_datawedge.pigeon.*
 
-// Enums for DataWedge Commands and Events
 enum class DWCommand(val cmd: String) {
     CreateProfile("com.symbol.datawedge.api.CREATE_PROFILE"),
     SetConfig("com.symbol.datawedge.api.SET_CONFIG"),
     SetPluginState("com.symbol.datawedge.api.SCANNER_INPUT_PLUGIN"),
     RegisterForNotification("com.symbol.datawedge.api.REGISTER_FOR_NOTIFICATION"),
     UnregisterForNotification("com.symbol.datawedge.api.UNREGISTER_FOR_NOTIFICATION"),
-    SoftScanTrigger("com.symbol.datawedge.api.SOFT_SCAN_TRIGGER")
+    SoftScanTrigger("com.symbol.datawedge.api.SOFT_SCAN_TRIGGER"),
 }
 
 enum class DWEvent(val value: String) {
     ResultAction("com.symbol.datawedge.api.RESULT_ACTION"),
     Action("com.symbol.datawedge.api.ACTION"),
     ResultNotification("com.symbol.datawedge.api.NOTIFICATION_ACTION")
+
 }
 
-class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : BroadcastReceiver(), DataWedgeHostApi {
+enum class DWKeys(val value: String) {
+    ApplicationName("com.symbol.datawedge.api.APPLICATION_NAME"),
+    NotificationType("com.symbol.datawedge.api.NOTIFICATION_TYPE"),
+    ScannerStatus("SCANNER_STATUS"),
+    SoftScanTriggerStart("START_SCANNING"),
+    SoftScanTriggerStop("STOP_SCANNING")
+}
 
-    private var isReceiverRegistered = false
+class CommandResult(
+    val command: String,
+    val commandIdentifier: String,
+    val extras: Bundle,
+    val result: String
+) {
 
-    // Registers the broadcast receiver
+}
+
+class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : BroadcastReceiver(),
+    DataWedgeHostApi {
+
+
+    // Registers a broadcast receive that listens to datawedge intents
     fun setupBroadcastReceiver() {
-        if (isReceiverRegistered) {
-            Log.d("DWInterface", "BroadcastReceiver is already registered.")
+        val intentFilter = IntentFilter()
+        intentFilter.addAction(context.packageName + ".SCAN_EVENT")
+        intentFilter.addAction(DWEvent.ResultAction.value)
+        intentFilter.addAction(DWEvent.Action.value)
+        intentFilter.addAction(DWEvent.ResultNotification.value)
+        intentFilter.addCategory(Intent.CATEGORY_DEFAULT)
+        context.registerReceiver(this, intentFilter)
+    }
+
+    // A map that contains the callbacks that are associated to the command identifier
+    val callbacks = HashMap<String, (Result<CommandResult>) -> Unit>()
+
+    companion object {
+        // DataWedge Extras
+        const val EXTRA_GET_VERSION_INFO = "com.symbol.datawedge.api.GET_VERSION_INFO"
+
+        const val EXTRA_KEY_APPLICATION_NAME = "com.symbol.datawedge.api.APPLICATION_NAME"
+        const val EXTRA_KEY_NOTIFICATION_TYPE = "NOTIFICATION_TYPE"
+        const val EXTRA_SOFT_SCAN_TRIGGER = "com.symbol.datawedge.api.SOFT_SCAN_TRIGGER"
+        const val EXTRA_RESULT_NOTIFICATION = "com.symbol.datawedge.api.NOTIFICATION"
+        const val EXTRA_REGISTER_NOTIFICATION = "com.symbol.datawedge.api.REGISTER_FOR_NOTIFICATION"
+
+        const val EXTRA_RESULT_NOTIFICATION_TYPE = "NOTIFICATION_TYPE"
+        const val EXTRA_KEY_VALUE_SCANNER_STATUS = "SCANNER_STATUS"
+        const val EXTRA_KEY_VALUE_PROFILE_SWITCH = "PROFILE_SWITCH"
+        const val EXTRA_KEY_VALUE_PROFILE_ENABLED = "PROFILE_ENABLED"
+        const val EXTRA_KEY_VALUE_CONFIGURATION_UPDATE = "CONFIGURATION_UPDATE"
+        const val EXTRA_KEY_VALUE_NOTIFICATION_STATUS = "STATUS"
+        const val EXTRA_KEY_VALUE_NOTIFICATION_PROFILE_NAME = "PROFILE_NAME"
+        const val EXTRA_SEND_RESULT = "SEND_RESULT"
+
+        const val EXTRA_RESULT = "RESULT"
+        const val EXTRA_RESULT_GET_ACTIVE_PROFILE =
+            "com.symbol.datawedge.api.RESULT_GET_ACTIVE_PROFILE"
+        const val EXTRA_RESULT_GET_PROFILES_LIST =
+            "com.symbol.datawedge.api.RESULT_GET_PROFILES_LIST"
+        const val EXTRA_RESULT_INFO = "RESULT_INFO"
+        const val EXTRA_COMMAND = "COMMAND"
+        const val EXTRA_COMMAND_IDENTIFIER = "COMMAND_IDENTIFIER"
+
+        // DataWedge Actions
+        const val ACTION_GET_SCANNER_STATUS = "com.symbol.datawedge.api.GET_SCANNER_STATUS"
+        const val ACTION_SET_CONFIG = "com.symbol.datawedge.api.SET_CONFIG"
+
+        const val DATAWEDGE_SCAN_EXTRA_SOURCE = "com.symbol.datawedge.source"
+        const val DATAWEDGE_SCAN_EXTRA_DATA_STRING = "com.symbol.datawedge.data_string"
+        const val DATAWEDGE_SCAN_EXTRA_LABEL_TYPE = "com.symbol.datawedge.label_type"
+        const val DATAWEDGE_SCAN_EXTRA_DECODE_DATA = "com.symbol.datawedge.decode_data"
+        const val DATAWEDGE_SCAN_EXTRA_DECODE_MODE = "com.symbol.datawedge.decoded_mode"
+
+    }
+
+    fun intentToString(intent: Intent?): String? {
+        if (intent == null) return ""
+        val stringBuilder = StringBuilder("action: ")
+            .append(intent.action)
+            .append(" data: ")
+            .append(intent.dataString)
+            .append(" extras: ")
+        for (key in intent.extras!!.keySet()) stringBuilder.append(key).append("=").append(
+            intent.extras!![key]
+        ).append(" ")
+        return stringBuilder.toString()
+    }
+
+    // Called whenever an intent is passed to the broadcast receiver
+    override fun onReceive(p0: Context?, intent: Intent?) {
+        if (intent == null) {
             return
         }
 
-        val intentFilter = IntentFilter().apply {
-            addAction(context.packageName + ".SCAN_EVENT")
-            addAction(DWEvent.ResultAction.value)
-            addAction(DWEvent.Action.value)
-            addAction(DWEvent.ResultNotification.value)
-            addCategory(Intent.CATEGORY_DEFAULT)
-        }
+        val action = intent.action
+        val b = intent.extras
 
-        try {
-            context.registerReceiver(this, intentFilter)
-            isReceiverRegistered = true
-            Log.d("DWInterface", "BroadcastReceiver registered successfully.")
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Error registering BroadcastReceiver: \${e.message}")
-        }
-    }
+        when (action) {
+            (DWEvent.ResultAction.value) -> {
+                val result = intent.getStringExtra(DWInterface.EXTRA_RESULT) ?: ""
+                val command = intent.getStringExtra(DWInterface.EXTRA_COMMAND) ?: ""
+                val commandIdentifier =
+                    intent.getStringExtra(DWInterface.EXTRA_COMMAND_IDENTIFIER) ?: ""
 
-    // Dispose method to unregister the receiver
-    fun dispose() {
-        if (isReceiverRegistered) {
-            try {
-                context.unregisterReceiver(this)
-                isReceiverRegistered = false
-                Log.d("DWInterface", "BroadcastReceiver successfully unregistered.")
-            } catch (e: IllegalArgumentException) {
-                Log.e("DWInterface", "Receiver not registered or already unregistered: \${e.message}")
+                // Callback the function we have stored in our hashmap
+                if (callbacks.containsKey(commandIdentifier)) {
+                    callbacks[commandIdentifier]?.let {
+                        it(
+                            Result.success(
+                                CommandResult(
+                                    command = command,
+                                    result = result,
+                                    commandIdentifier = commandIdentifier,
+                                    extras = intent.extras!!
+                                )
+                            )
+                        )
+                    }
+                    // Remove the pending command as it is resolved now
+                    callbacks.remove(commandIdentifier)
+                } else {
+                    Log.e("DWInterface", "Unknown command was returned")
+                }
+
             }
-        } else {
-            Log.d("DWInterface", "BroadcastReceiver was not registered, skipping unregistration.")
-        }
-    }
 
-    override fun createProfile(profileName: String, callback: (Result<Unit>) -> Unit) {
-        try {
-            val intent = Intent().apply {
-                action = "com.symbol.datawedge.api.CREATE_PROFILE"
-                putExtra("PROFILE_NAME", profileName)
-            }
-            context.sendBroadcast(intent)
-            Log.d("DWInterface", "Profile creation command sent for: $profileName")
-            callback(Result.success(Unit))
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Error creating profile: ${e.message}")
-            callback(Result.failure(e))
-        }
-    }
+            (context.packageName + ".SCAN_EVENT") -> {
+                //  A barcode has been scanned
+                val source = intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_SOURCE) ?: ""
+                val scanData =
+                    intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_DATA_STRING) ?: ""
+                val labelType =
+                    intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_LABEL_TYPE) ?: ""
+                val decodedData =
+                    intent.getSerializableExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_DECODE_DATA) as (ArrayList<ByteArray>?)
+                val decodeMode = intent.getStringExtra(DWInterface.DATAWEDGE_SCAN_EXTRA_DECODE_MODE)
 
-    override fun setProfileConfig(config: ProfileConfig, callback: (Result<Unit>) -> Unit) {
-        try {
-            val intent = Intent().apply {
-                action = DWCommand.SetConfig.cmd
-                putExtra("PROFILE_NAME", config.profileName)
-                putExtra("CONFIG_MODE", config.configMode.name.uppercase())
-
-                val pluginConfig = Bundle().apply {
-                    config.barcodeParamters?.decoderConfig?.forEach { decoderConfig ->
-                        decoderConfig?.decoder?.let { decoder ->
-                            putBoolean("decoder_\${decoder.name.lowercase()}", decoderConfig.enabled ?: false)
+                flutterApi.onScanResult(
+                    ScanEvent(
+                        labelType = convertLabelType(labelType),
+                        source = when (source) {
+                            "msr" -> ScanSource.MSR
+                            "scanner" -> ScanSource.SCANNER
+                            "simulscan" -> ScanSource.SIMULSCAN
+                            "serial" -> ScanSource.SERIAL
+                            "voice" -> ScanSource.VOICE
+                            "rfid" -> ScanSource.RFID
+                            else -> throw Error("Unknown source")
+                        },
+                        dataString = scanData,
+                        decodeData = decodedData?.toList() ?: listOf<ByteArray>(),
+                        decodeMode = when (decodeMode) {
+                            "multiple_decode" -> DecodeMode.MULTIPLE
+                            "single_decode" -> DecodeMode.SINGLE
+                            else -> throw Error("Unknown decode mode")
                         }
+                    )
+                ) { result ->
+                    when (result.isSuccess) {
+                        true -> println("Operation succeeded")
+                        false -> println("Operation failed with exception: ${result.exceptionOrNull()}")
                     }
                 }
 
-                putExtra("PLUGIN_CONFIG", pluginConfig)
             }
 
-            context.sendBroadcast(intent)
-            Log.d("DWInterface", "Profile configuration sent: \${config.profileName}")
-            callback(Result.success(Unit))
+            (DWEvent.ResultNotification.value) -> {
+
+
+                if (!intent.hasExtra(EXTRA_RESULT_NOTIFICATION)) {
+                    return
+                }
+                val notification = intent.getBundleExtra(EXTRA_RESULT_NOTIFICATION) ?: return
+
+
+                val keys = notification.keySet()
+
+                val notificationType = notification.getString(EXTRA_KEY_NOTIFICATION_TYPE) ?: return
+
+                Log.d("Notification", notificationType)
+
+                when (notificationType) {
+                    EXTRA_KEY_VALUE_SCANNER_STATUS -> {
+                        val status =
+                            notification.getString(DWInterface.EXTRA_KEY_VALUE_NOTIFICATION_STATUS)
+
+                        flutterApi.onScannerStatusChanged(
+                            StatusChangeEvent(
+                                newState = when (status) {
+                                    "WAITING" -> ScannerState.WAITING
+                                    "DISABLED" -> ScannerState.DISABLED
+                                    "SCANNING" -> ScannerState.SCANNING
+                                    "IDLE" -> ScannerState.IDLE
+                                    "CONNECTED" -> ScannerState.CONNECTED
+                                    "DISCONNECTED" -> ScannerState.DISCONNECTED
+                                    else -> throw Error("Unknown scanner state")
+                                }
+                            )
+                        ) { }
+                    }
+
+                    EXTRA_KEY_VALUE_PROFILE_SWITCH -> {
+                        flutterApi.onProfileChange { }
+                    }
+
+                    EXTRA_KEY_VALUE_CONFIGURATION_UPDATE -> {
+                        flutterApi.onConfigUpdate {}
+
+                    }
+
+
+                }
+            }
+        }
+    }
+
+    // Clear all callbacks to prevent holding unresolvable references and unregister the broadcast receiver
+    fun dispose() {
+        for (callback in callbacks) {
+            callback.value(Result.failure(Error("DataWedge interface was disposed")))
+        }
+
+        context.unregisterReceiver(this)
+    }
+
+    // from https://stackoverflow.com/questions/46943860/idiomatic-way-to-generate-a-random-alphanumeric-string-in-kotlin
+    private fun getRandomString(length: Int): String {
+        val allowedChars = ('A'..'Z') + ('a'..'z') + ('0'..'9')
+        return (1..length)
+            .map { allowedChars.random() }
+            .joinToString("")
+    }
+
+    fun sendCommandString(
+        command: DWCommand,
+        parameter: String,
+        callback: (Result<CommandResult>) -> Unit
+    ) {
+        sendCommand(command, parameter, callback)
+    }
+
+    fun sendCommandBundle(
+
+        command: DWCommand,
+        parameter: Bundle,
+        callback: (Result<CommandResult>) -> Unit
+    ) {
+        sendCommand(command, parameter, callback)
+    }
+
+    private fun sendCommand(
+        command: DWCommand,
+        parameter: Any,
+        callback: (Result<CommandResult>) -> Unit
+    ) {
+        // Generate a random command identifier
+        val commandIdentifier = getRandomString(10)
+
+        // Keep a reference to the callback by the command identifier
+        callbacks[commandIdentifier] = callback
+
+        try {
+            val dwIntent = Intent().apply {
+                action = DWEvent.Action.value
+                putExtra(EXTRA_SEND_RESULT, "true")
+                putExtra(EXTRA_COMMAND_IDENTIFIER, commandIdentifier)
+
+                when (parameter) {
+                    is String -> putExtra(command.cmd, parameter)
+                    is Bundle -> putExtra(command.cmd, parameter)
+                    else -> {
+                        callback(Result.failure(Error("Unsupported payload type: ${parameter::class.java.simpleName}")))
+                        return
+                    }
+                }
+            }
+
+            // Send the broadcast
+            context.sendBroadcast(dwIntent)
         } catch (e: Exception) {
-            Log.e("DWInterface", "Error setting profile config: \${e.message}")
+            // Handle unexpected errors
             callback(Result.failure(e))
         }
     }
 
-    override fun enablePlugin(callback: (Result<String>) -> Unit) {
+    override fun createProfile(
+        profileName: String,
+        callback: (kotlin.Result<Unit>) -> Unit
+    ) {
+        Log.d("DWInterface", "Creating profile with name: $profileName")
         try {
-            val intent = Intent().apply {
-                action = DWCommand.SetPluginState.cmd
-                putExtra("com.symbol.datawedge.api.SCANNER_INPUT_PLUGIN", "ENABLE_PLUGIN")
+            sendCommand(DWCommand.CreateProfile, profileName) { result ->
+                try {
+                    if (result.isFailure) {
+                        val exception = result.exceptionOrNull()
+                        Log.e("DWInterface", "Error creating profile: ${exception?.message}", exception)
+                        callback(Result.failure(exception ?: Exception("Unknown error during profile creation.")))
+                    } else {
+                        val cmd = result.getOrThrow()
+                        Log.d("DWInterface", "Command response: ${cmd.result}")
+                        when (cmd.result) {
+                            "SUCCESS" -> {
+                                Log.d("DWInterface", "Profile created successfully: $profileName")
+                                callback(Result.success(Unit))
+                            }
+                            else -> {
+                                Log.e("DWInterface", "Failed to create profile: ${cmd.result}")
+                                callback(Result.failure(Exception("Command failed: ${cmd.result}")))
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("DWInterface", "Error processing command result", e)
+                    callback(Result.failure(e))
+                }
             }
-            context.sendBroadcast(intent)
-            callback(Result.success("Plugin Enabled"))
         } catch (e: Exception) {
-            Log.e("DWInterface", "Error enabling plugin: \${e.message}")
-            callback(Result.failure(e))
-        }
-    }
-
-    override fun disablePlugin(callback: (Result<String>) -> Unit) {
-        try {
-            val intent = Intent().apply {
-                action = DWCommand.SetPluginState.cmd
-                putExtra("com.symbol.datawedge.api.SCANNER_INPUT_PLUGIN", "DISABLE_PLUGIN")
-            }
-            context.sendBroadcast(intent)
-            Log.d("DWInterface", "Plugin disabled broadcast sent successfully.")
-            callback(Result.success("Plugin Disabled"))
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Error disabling plugin: \${e.message}")
+            Log.e("DWInterface", "Unexpected error during profile creation", e)
             callback(Result.failure(e))
         }
     }
 
     override fun suspendPlugin(callback: (Result<String>) -> Unit) {
-        try {
-            val intent = Intent().apply {
-                action = DWCommand.SetPluginState.cmd
-                putExtra("com.symbol.datawedge.api.SCANNER_INPUT_PLUGIN", "SUSPEND_PLUGIN")
+        sendCommandString(DWCommand.SetPluginState, "SUSPEND_PLUGIN") { result ->
+            if (result.isFailure) {
+                callback(Result.failure(result.exceptionOrNull()!!))
+
+            } else {
+                val cmd = result.getOrThrow()
+                when (cmd.result) {
+                    // Unsure whether this exists, not in the docs
+                    "SCANNER_SUSPEND_FAILED" -> callback(Result.failure(Error(cmd.result)))
+                    "SCANNER_ALREADY_SUSPENDED" -> callback(Result.failure(Error(cmd.result)))
+                    "PLUGIN_DISABLED" -> callback(Result.failure(Error(cmd.result)))
+                    else -> callback(Result.success(cmd.result))
+                }
             }
-            context.sendBroadcast(intent)
-            Log.d("DWInterface", "Plugin suspend broadcast sent successfully.")
-            callback(Result.success("Plugin Suspended"))
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Error suspending plugin: \${e.message}")
-            callback(Result.failure(e))
+
         }
     }
 
     override fun resumePlugin(callback: (Result<String>) -> Unit) {
-        try {
-            val intent = Intent().apply {
-                action = DWCommand.SetPluginState.cmd
-                putExtra("com.symbol.datawedge.api.SCANNER_INPUT_PLUGIN", "RESUME_PLUGIN")
+        sendCommandString(DWCommand.SetPluginState, "RESUME_PLUGIN") { result ->
+            if (result.isFailure) {
+                callback(Result.failure(result.exceptionOrNull()!!))
+
+            } else {
+                val cmd = result.getOrThrow()
+                when (cmd.result) {
+                    "SCANNER_RESUME_FAILED" -> callback(Result.failure(Error(cmd.result)))
+                    "SCANNER_ALREADY_RESUMED" -> callback(Result.failure(Error(cmd.result)))
+                    "PLUGIN_DISABLED" -> callback(Result.failure(Error(cmd.result)))
+                    else -> callback(Result.success(cmd.result))
+                }
             }
-            context.sendBroadcast(intent)
-            Log.d("DWInterface", "Plugin resume broadcast sent successfully.")
-            callback(Result.success("Plugin Resumed"))
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Error resuming plugin: \${e.message}")
-            callback(Result.failure(e))
         }
     }
 
-    override fun setDecoder(decoder: Decoder, enabled: Boolean, profileName: String, callback: (Result<Unit>) -> Unit) {
-        try {
-            val intent = Intent().apply {
-                action = DWCommand.SetConfig.cmd
-                putExtra("PROFILE_NAME", profileName)
-                putExtra("PLUGIN_NAME", "BARCODE")
-                putExtra("RESET_CONFIG", false)
+    override fun enablePlugin(callback: (Result<String>) -> Unit) {
+        sendCommandString(DWCommand.SetPluginState, "ENABLE_PLUGIN") { result ->
+            if (result.isFailure) {
+                callback(Result.failure(result.exceptionOrNull()!!))
 
-                val params = Bundle().apply {
-                    putBoolean("decoder_\${decoder.name.lowercase()}", enabled)
+            } else {
+                val cmd = result.getOrThrow()
+                when (cmd.result) {
+                    "SCANNER_ALREADY_ENABLED" -> callback(Result.failure(Error(cmd.result)))
+                    "SCANNER_ENABLE_FAILED" -> callback(Result.failure(Error(cmd.result)))
+                    else -> callback(Result.success(cmd.result))
                 }
-
-                val config = Bundle().apply {
-                    putBundle("PARAM_LIST", params)
-                }
-
-                putExtra("PLUGIN_CONFIG", config)
             }
+        }
+    }
 
-            context.sendBroadcast(intent)
-            Log.d("DWInterface", "Decoder configuration sent: decoder=\${decoder.name}, enabled=\$enabled, profile=\$profileName")
-            callback(Result.success(Unit))
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Error setting decoder: \${e.message}")
-            callback(Result.failure(e))
+
+    override fun disablePlugin(callback: (Result<String>) -> Unit) {
+        sendCommandString(DWCommand.SetPluginState, "DISABLE_PLUGIN") { result ->
+            if (result.isFailure) {
+                callback(Result.failure(result.exceptionOrNull()!!))
+
+            } else {
+                val cmd = result.getOrThrow()
+                when (cmd.result) {
+                    "SCANNER_ALREADY_DISABLED" -> callback(Result.failure(Error(cmd.result)))
+                    "SCANNER_DISABLE_FAILED" -> callback(Result.failure(Error(cmd.result)))
+                    else -> callback(Result.success(cmd.result))
+                }
+            }
+        }
+    }
+
+
+    override fun getPackageIdentifer(): String {
+        return context.applicationInfo.packageName
+    }
+
+    override fun registerForNotifications(): Unit {
+
+        val params = Bundle()
+
+        params.putString(DWKeys.ApplicationName.value, getPackageIdentifer())
+        params.putString(DWKeys.NotificationType.value, DWKeys.ScannerStatus.value)
+
+
+        sendCommandBundle(DWCommand.RegisterForNotification, params) { res ->
+            // This command never returns
         }
     }
 
     override fun softScanTrigger(on: Boolean, callback: (Result<String>) -> Unit) {
-        try {
-            val actionString = if (on) "START_SCANNING" else "STOP_SCANNING"
-            val intent = Intent().apply {
-                action = DWCommand.SoftScanTrigger.cmd
-                putExtra("com.symbol.datawedge.api.SOFT_SCAN_TRIGGER", actionString)
+
+        var cmdValue = DWKeys.SoftScanTriggerStart.value
+
+        if (!on)
+            cmdValue = DWKeys.SoftScanTriggerStop.value
+
+
+
+        sendCommandString(DWCommand.SoftScanTrigger, cmdValue) { result ->
+            if (result.isFailure) {
+                callback(Result.failure(result.exceptionOrNull()!!))
+
+            } else {
+                val cmd = result.getOrThrow()
+                when (cmd.result) {
+                    "SCANNER_ALREADY_DISABLED" -> callback(Result.failure(Error(cmd.result)))
+                    "SCANNER_DISABLE_FAILED" -> callback(Result.failure(Error(cmd.result)))
+                    else -> callback(Result.success(cmd.result))
+                }
             }
-            context.sendBroadcast(intent)
-            Log.d("DWInterface", "Soft scan trigger sent: $actionString")
-            callback(Result.success("Soft scan trigger sent successfully."))
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Error sending soft scan trigger: ${e.message}")
-            callback(Result.failure(e))
         }
+
+
     }
 
-    override fun unregisterForNotifications() {
-        Log.d("DWInterface", "Unregistering for notifications...")
-        try {
-            val intent = Intent().apply {
-                action = DWCommand.UnregisterForNotification.cmd
-            }
-            context.sendBroadcast(intent)
-            Log.d("DWInterface", "Successfully unregistered for notifications.")
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Error while unregistering for notifications: \${e.message}")
-        }
+    override fun unregisterForNotifications(): Unit {
+        TODO("Not yet implemented")
     }
 
-    override fun onReceive(context: Context?, intent: Intent?) {
-        if (intent == null) {
-            Log.e("DWInterface", "Received null intent")
-            return
+
+    // Tries to call set config with each of the known decoders set to false.
+    override fun setDecoder(
+        decoder: Decoder,
+        enabled: Boolean,
+        profileName: String,
+        callback: (Result<Unit>) -> Unit
+    ): Unit {
+
+
+        val configBundle = Bundle()
+
+        // Base config
+        configBundle.putString("PROFILE_NAME", profileName)
+        configBundle.putString("CONFIG_MODE", "UPDATE")
+
+        val bConfig = Bundle()
+        val bParams = Bundle()
+
+        intentBool(bParams, decoderToString[decoder]!!, enabled)
+
+        bParams.putString("scanner_selection_by_identifier","AUTO")
+
+        bConfig.putString("PLUGIN_NAME", "BARCODE")
+        bConfig.putBundle("PARAM_LIST", bParams)
+
+        val plugins = arrayListOf<Bundle>(
+            bConfig
+        )
+
+        configBundle.putParcelableArrayList("PLUGIN_CONFIG", plugins)
+
+        sendCommand(DWCommand.SetConfig, configBundle) { res ->
+            if (res.isFailure) {
+                callback(Result.failure(res.exceptionOrNull()!!))
+
+            } else {
+                val cmd = res.getOrThrow()
+
+                when (cmd.result) {
+                    "SUCCESS" -> callback(Result.success(Unit))
+                    else -> callback(Result.failure(Error(cmd.result)))
+                }
+
+
+            }
         }
 
-        val action = intent.action
-        Log.d("DWInterface", "Received action: \$action")
 
-        when (action) {
-            DWEvent.ResultAction.value -> {
-                val result = intent.getStringExtra("COMMAND_RESULT") ?: "UNKNOWN_RESULT"
-                val command = intent.getStringExtra("COMMAND") ?: "UNKNOWN_COMMAND"
-                Log.d("DWInterface", "Result: \$result, Command: \$command")
-            }
-            context?.packageName + ".SCAN_EVENT" -> {
-                val scanData = intent.getStringExtra("com.symbol.datawedge.data_string") ?: ""
-                Log.d("DWInterface", "Scan Data: \$scanData")
-            }
-            else -> Log.w("DWInterface", "Unhandled action: \$action")
-        }
     }
 
-    override fun getPackageIdentifer(): String {
-        val packageName = context.packageName
-        Log.d("DWInterface", "Returning package identifier: \$packageName")
-        return packageName
-    }
 
-    override fun registerForNotifications() {
-        Log.d("DWInterface", "Registering for notifications...")
-        try {
-            val intent = Intent().apply {
-                action = DWCommand.RegisterForNotification.cmd
-                putExtra("com.symbol.datawedge.api.NOTIFICATION_TYPE", "SCANNER_STATUS")
+    override fun setProfileConfig(config: ProfileConfig, callback: (kotlin.Result<Unit>) -> Unit) {
+        // We somehow need to convert the profile config to a bundle...
+
+        val configBundle = Bundle()
+
+        // Base config
+        configBundle.putString("PROFILE_NAME", config.profileName)
+        configBundle.putString("PROFILE_ENABLED", config.profileEnabled.toString())
+        configBundle.putString(
+            "CONFIG_MODE", when (config.configMode) {
+                ConfigMode.CREATE_IF_NOT_EXISTS -> "CREATE_IF_NOT_EXIST"
+                ConfigMode.UPDATE -> "UPDATE"
+                ConfigMode.OVERWRITE -> "OVERWRITE"
+                else -> "UNKNOWN"
             }
-            context.sendBroadcast(intent)
-            Log.d("DWInterface", "Broadcast sent successfully for registering notifications.")
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Error in registerForNotifications: \${e.message}")
+        )
+
+        // Apps that this profile is active for
+        if (config.appList != null) {
+
+            configBundle.putParcelableArray("APP_LIST", config.appList.map { appEntry ->
+                val app = Bundle()
+                if (appEntry != null) {
+                    app.putString("PACKAGE_NAME", appEntry.packageName)
+                    app.putStringArray(
+                        "ACTIVITY_LIST",
+                        appEntry.activityList.map { e -> e!! }.toTypedArray()
+                    )
+                }
+                app
+            }.toTypedArray())
         }
+
+        // Prepare a list of plugins that we will process. Maybe we will need to split this into
+        // multiple calls in the future, because older version of DW don't support multiple plugins
+        // at once
+        val plugins = arrayListOf<Bundle>()
+
+        // Intent parameters
+        if (config.intentParamters != null) {
+            plugins.add(buildIntentConfig(config.intentParamters))
+        }
+
+        // Barcode parameters
+        if (config.barcodeParamters != null) {
+            plugins.add(buildBarcodeConfig(config.barcodeParamters))
+        }
+
+        // Add all plugins
+        configBundle.putParcelableArrayList("PLUGIN_CONFIG", plugins)
+
+
+        sendCommand(DWCommand.SetConfig, configBundle) { res ->
+            if (res.isFailure) {
+                callback(Result.failure(res.exceptionOrNull()!!))
+
+            } else {
+                val cmd = res.getOrThrow()
+
+                when (cmd.result) {
+                    "SUCCESS" -> callback(Result.success(Unit))
+                    else -> callback(Result.failure(Error(cmd.result)))
+                }
+
+
+            }
+        }
+
+
     }
 }

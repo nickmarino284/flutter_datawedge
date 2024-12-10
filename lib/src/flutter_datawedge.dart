@@ -4,6 +4,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_datawedge/flutter_datawedge.dart';
 import 'package:flutter_datawedge/logger.dart';
+import 'package:flutter_datawedge/src/pigeon.dart';
+import 'package:flutter_datawedge/src/result.dart';
+
+import '../flutter_datawedge.dart';
+import '../logger.dart';
 
 /// Thrown if the profile we try to create already exists
 class ProfileExistsError extends Error {}
@@ -17,9 +22,9 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   /// Used to create a new [FlutterDataWedge]
   FlutterDataWedge()
       : assert(
-          _instCount == 0,
-          'Dont construct this class. Use .instance instead',
-        ) {
+  _instCount == 0,
+  'Dont construct this class. Use .instance instead',
+  ) {
     _instCount++;
     DataWedgeFlutterApi.setUp(this);
   }
@@ -34,18 +39,13 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   /// create a new profile in data wedge with the name [profileName]
   /// if [autoActivate] is true, current app is added as an activation app
   /// to the profile.
-  Future<void> createProfile(String profileName, {bool autoActivate = true}) async {
+  Future<void> createProfile(
+      String profileName, {
+        bool autoActivate = true,
+      }) async {
     assert(profileName.isNotEmpty, 'Profile name cannot be empty');
 
-    try {
-      await _hostApi.createProfile(profileName);
-      logger.debug('Profile "$profileName" created successfully.');
-    } catch (e) {
-      if (e.toString().contains('already exists')) {
-        throw ProfileExistsError();
-      }
-      logger.error('Error creating profile: $e', StackTrace.current);
-    }
+    await _hostApi.createProfile(profileName);
 
     if (autoActivate) {
       final packageName = await _hostApi.getPackageIdentifer();
@@ -55,27 +55,78 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
         profileName: profileName,
         configMode: ConfigMode.update,
         appList: [
-          AppEntry(packageName: packageName, activityList: ['*']),
+          AppEntry(
+            packageName: packageName,
+            activityList: ['*'],
+          ),
         ],
         intentParamters: PluginIntentParamters(
           intentOutputEnabled: true,
           intentAction: '$packageName.SCAN_EVENT',
           intentDelivery: IntentDelivery.broadcast,
         ),
-        barcodeParamters: PluginBarcodeParamters(scannerInputEnabled: true),
+        barcodeParamters: PluginBarcodeParamters(
+            decoderConfig: [
+              DecoderConfigItem(decoder: Decoder.australianPostal, enabled: true),
+              DecoderConfigItem(decoder: Decoder.aztec, enabled: true),
+              DecoderConfigItem(decoder: Decoder.canadianPostal, enabled: true),
+              DecoderConfigItem(decoder: Decoder.chinese2of5, enabled: true),
+              DecoderConfigItem(decoder: Decoder.codabar, enabled: true),
+              DecoderConfigItem(decoder: Decoder.code11, enabled: true),
+              DecoderConfigItem(decoder: Decoder.code32, enabled: true),
+              DecoderConfigItem(decoder: Decoder.code39, enabled: true),
+              DecoderConfigItem(decoder: Decoder.code93, enabled: true),
+              DecoderConfigItem(decoder: Decoder.code128, enabled: true),
+              DecoderConfigItem(decoder: Decoder.compositeAb, enabled: true),
+              DecoderConfigItem(decoder: Decoder.compositeC, enabled: true),
+              DecoderConfigItem(decoder: Decoder.datamatrix, enabled: true),
+              DecoderConfigItem(decoder: Decoder.signature, enabled: true),
+              DecoderConfigItem(decoder: Decoder.d2of5, enabled: true),
+              DecoderConfigItem(decoder: Decoder.dotcode, enabled: true),
+              DecoderConfigItem(decoder: Decoder.dutchPostal, enabled: true),
+              DecoderConfigItem(decoder: Decoder.ean8, enabled: true),
+              DecoderConfigItem(decoder: Decoder.ean13, enabled: true),
+              DecoderConfigItem(decoder: Decoder.finnishPostal4s, enabled: true),
+              DecoderConfigItem(decoder: Decoder.gridMatrix, enabled: true),
+              DecoderConfigItem(decoder: Decoder.gs1Databar, enabled: true),
+              DecoderConfigItem(decoder: Decoder.gs1DatabarLim, enabled: true),
+              DecoderConfigItem(decoder: Decoder.gs1DatabarExp, enabled: true),
+              DecoderConfigItem(decoder: Decoder.gs1Datamatrix, enabled: true),
+              DecoderConfigItem(decoder: Decoder.gs1Qrcode, enabled: true),
+              DecoderConfigItem(decoder: Decoder.hanxin, enabled: true),
+              DecoderConfigItem(decoder: Decoder.i2of5, enabled: true),
+              DecoderConfigItem(decoder: Decoder.japanesePostal, enabled: true),
+              DecoderConfigItem(decoder: Decoder.korean3of5, enabled: true),
+              DecoderConfigItem(decoder: Decoder.mailmark, enabled: true),
+              DecoderConfigItem(decoder: Decoder.matrix2of5, enabled: true),
+              DecoderConfigItem(decoder: Decoder.maxicode, enabled: true),
+              DecoderConfigItem(decoder: Decoder.micrE13b, enabled: true),
+              DecoderConfigItem(decoder: Decoder.micropdf, enabled: true),
+              DecoderConfigItem(decoder: Decoder.microqr, enabled: true),
+              DecoderConfigItem(decoder: Decoder.msi, enabled: true),
+              DecoderConfigItem(decoder: Decoder.ocrA, enabled: true),
+              DecoderConfigItem(decoder: Decoder.ocrB, enabled: true),
+              DecoderConfigItem(decoder: Decoder.pdf417, enabled: true),
+              DecoderConfigItem(decoder: Decoder.qrcode, enabled: true),
+              DecoderConfigItem(decoder: Decoder.tlc39, enabled: true),
+              DecoderConfigItem(decoder: Decoder.trioptic39, enabled: true),
+              DecoderConfigItem(decoder: Decoder.ukPostal, enabled: true),
+              DecoderConfigItem(decoder: Decoder.usCurrency, enabled: true),
+              DecoderConfigItem(decoder: Decoder.usplanet, enabled: true),
+              DecoderConfigItem(decoder: Decoder.usPostal, enabled: true),
+              DecoderConfigItem(decoder: Decoder.uspostnet, enabled: true),
+              DecoderConfigItem(decoder: Decoder.upca, enabled: true),
+              DecoderConfigItem(decoder: Decoder.upce0, enabled: true),
+              DecoderConfigItem(decoder: Decoder.upce1, enabled: true),
+              DecoderConfigItem(decoder: Decoder.us4state, enabled: true),
+              DecoderConfigItem(decoder: Decoder.us4stateFics, enabled: true),
+            ]
+        ),
       );
 
       await setConfig(config);
-      logger.debug('Profile configuration updated.');
-
-      await enablePlugin();
-      logger.debug('Scanner input plugin explicitly enabled.');
-
-      await registerForNotifications();
-      logger.debug('Registered for notifications.');
     }
   }
-
 
   /// Disables all decoders
   Future<CmdResult<List<Decoder>>> disableAllDecoders(String profileName) async {
@@ -95,39 +146,37 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   Future<CmdResult<List<Decoder>>> _setAllDecoders(
       bool enabled,
       String profileName,
-  ) async {
+      ) async {
     final availableDecoders = <Decoder>[];
-    final failedDecoders = <Decoder>[];
-    final errors = <String>[];
+    var anyFailures = false;
+    var error = '';
 
     for (final decoder in Decoder.values) {
       try {
         await _hostApi.setDecoder(decoder, enabled, profileName);
         availableDecoders.add(decoder);
-        logger.info('Decoder $decoder ${enabled ? 'enabled' : 'disabled'} successfully.');
+        logger.info('Decoder $decoder enabled');
       } catch (e) {
-        failedDecoders.add(decoder);
-        errors.add('Decoder $decoder failed: $e');
-        logger.warning('Decoder $decoder could not be ${enabled ? 'enabled' : 'disabled'}: $e', StackTrace.current.toString());
+        logger.info('Decoder $decoder not available');
+        anyFailures = true;
+        error = e.toString();
       }
     }
 
-    // Log a summary of failures if any.
-    if (failedDecoders.isNotEmpty) {
-      logger.error('Some decoders failed: ${errors.join('; ')}', StackTrace.current);
-      return CmdResult.failure(
-        'Some decoders failed to ${enabled ? 'enable' : 'disable'}. Errors: ${errors.join('; ')}',
-      );
+    // If any decoders failed, return a failure CmdResult with the available decoders.
+    if (anyFailures) {
+      return CmdResult.failure( 'Could not be enabled due to an error: $error');
     }
 
-    logger.info('All decoders ${enabled ? 'enabled' : 'disabled'} successfully.');
+    // If all decoders were successfully enabled, return success.
     return CmdResult.success(availableDecoders);
   }
 
+
   /// Update a profile config
   Future<void> setConfig(
-    ProfileConfig config,
-  ) async {
+      ProfileConfig config,
+      ) async {
     await _hostApi.setProfileConfig(config);
   }
 
@@ -169,12 +218,6 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
   void onScannerStatusChanged(StatusChangeEvent statusEvent) {
     logger.debug('Scanner status changed: ${statusEvent.newState}');
     _statusChangeEvents.add(statusEvent);
-  }
-
-  @override
-  void onCommandResult(ActionResult result) {
-    logger.debug('Command result: $result');
-    _actionResults.add(result);
   }
 
   /// Register for notifications from DataWedge. This is required to receive
@@ -242,5 +285,11 @@ class FlutterDataWedge extends DataWedgeFlutterApi {
       return CmdResult.failure('Failed to enable plugin: $e');
     }
   }
+
+  @override
+  void onCommandResult(ActionResult result) {
+    logger.debug(result.message);
+  }
+
 
 }
