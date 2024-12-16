@@ -321,17 +321,9 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
             checkProfileExists(profileName) { existsResult ->
                 existsResult.onSuccess { exists ->
                     if (exists) {
-                        Log.d("DWInterface", "Profile already exists: $profileName. Deleting it first.")
-                        deleteProfile(profileName) { deleteResult ->
-                            deleteResult.onSuccess {
-                                Log.d("DWInterface", "Profile deleted successfully: $profileName")
-                                // Proceed to create the profile
-                                createNewProfile(profileName, callback)
-                            }.onFailure { error ->
-                                Log.e("DWInterface", "Failed to delete profile: ${error.message}", error)
-                                callback(Result.failure(error))
-                            }
-                        }
+                        Log.d("DWInterface", "Profile already exists: $profileName. Return it.")
+                        // return existing profile or true
+                        callback(Result.success(Unit))
                     } else {
                         // Profile doesn't exist, create it directly
                         createNewProfile(profileName, callback)
