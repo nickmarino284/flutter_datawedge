@@ -353,7 +353,7 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
     ) {
         Log.d("DWInterface", "Checking if profile exists: $profileName")
         try {
-            sendCommand(DWCommand.ListProfiles, null) { result ->
+            sendCommand(DWCommand.ListProfiles, "") { result ->
                 try {
                     if (result.isFailure) {
                         val exception = result.exceptionOrNull()
@@ -377,7 +377,7 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
         }
     }
 
-    override fun deleteProfile(
+    fun deleteProfile(
         profileName: String,
         callback: (kotlin.Result<Unit>) -> Unit
     ) {
