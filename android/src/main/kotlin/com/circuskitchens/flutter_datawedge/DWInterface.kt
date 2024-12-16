@@ -10,6 +10,8 @@ import com.circuskitchens.flutter_datawedge.pigeon.*
 
 enum class DWCommand(val cmd: String) {
     CreateProfile("com.symbol.datawedge.api.CREATE_PROFILE"),
+    DeleteProfile("com.symbol.datawedge.api.DELETE_PROFILE"),
+    ListProfiles("com.symbol.datawedge.api.GET_PROFILES_LIST"),
     SetConfig("com.symbol.datawedge.api.SET_CONFIG"),
     SetPluginState("com.symbol.datawedge.api.SCANNER_INPUT_PLUGIN"),
     RegisterForNotification("com.symbol.datawedge.api.REGISTER_FOR_NOTIFICATION"),
