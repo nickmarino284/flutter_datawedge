@@ -313,6 +313,108 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
         profileName: String,
         callback: (kotlin.Result<Unit>) -> Unit
     ) {
+        Log.d("DWInterface", "Creating or updating profile: $profileName")
+
+        try {
+            checkProfileExists(profileName) { existsResult ->
+                existsResult.onSuccess { exists ->
+                    if (exists) {
+                        Log.d("DWInterface", "Profile already exists: $profileName. Deleting it first.")
+                        deleteProfile(profileName) { deleteResult ->
+                            deleteResult.onSuccess {
+                                Log.d("DWInterface", "Profile deleted successfully: $profileName")
+                                // Proceed to create the profile
+                                createNewProfile(profileName, callback)
+                            }.onFailure { error ->
+                                Log.e("DWInterface", "Failed to delete profile: ${error.message}", error)
+                                callback(Result.failure(error))
+                            }
+                        }
+                    } else {
+                        // Profile doesn't exist, create it directly
+                        createNewProfile(profileName, callback)
+                    }
+                }.onFailure { error ->
+                    Log.e("DWInterface", "Failed to check if profile exists: ${error.message}", error)
+                    callback(Result.failure(error))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("DWInterface", "Unexpected error during profile creation", e)
+            callback(Result.failure(e))
+        }
+    }
+
+    fun checkProfileExists(
+        profileName: String,
+        callback: (kotlin.Result<Boolean>) -> Unit
+    ) {
+        Log.d("DWInterface", "Checking if profile exists: $profileName")
+        try {
+            sendCommand(DWCommand.ListProfiles, null) { result ->
+                try {
+                    if (result.isFailure) {
+                        val exception = result.exceptionOrNull()
+                        Log.e("DWInterface", "Error listing profiles: ${exception?.message}", exception)
+                        callback(Result.failure(exception ?: Exception("Unknown error during profile existence check.")))
+                    } else {
+                        val cmd = result.getOrThrow()
+                        val profiles = cmd.result.split(",") // Assuming profiles are returned as a comma-separated string
+                        val exists = profiles.contains(profileName)
+                        Log.d("DWInterface", "Profile exists: $exists for $profileName")
+                        callback(Result.success(exists))
+                    }
+                } catch (e: Exception) {
+                    Log.e("DWInterface", "Error processing command result", e)
+                    callback(Result.failure(e))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("DWInterface", "Unexpected error during profile existence check", e)
+            callback(Result.failure(e))
+        }
+    }
+
+    override fun deleteProfile(
+        profileName: String,
+        callback: (kotlin.Result<Unit>) -> Unit
+    ) {
+        Log.d("DWInterface", "Deleting profile with name: $profileName")
+        try {
+            sendCommand(DWCommand.DeleteProfile, profileName) { result ->
+                try {
+                    if (result.isFailure) {
+                        val exception = result.exceptionOrNull()
+                        Log.e("DWInterface", "Error deleting profile: ${exception?.message}", exception)
+                        callback(Result.failure(exception ?: Exception("Unknown error during profile deletion.")))
+                    } else {
+                        val cmd = result.getOrThrow()
+                        when (cmd.result) {
+                            "SUCCESS" -> {
+                                Log.d("DWInterface", "Profile deleted successfully: $profileName")
+                                callback(Result.success(Unit))
+                            }
+                            else -> {
+                                Log.e("DWInterface", "Failed to delete profile: ${cmd.result}")
+                                callback(Result.failure(Exception("Command failed: ${cmd.result}")))
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("DWInterface", "Error processing command result", e)
+                    callback(Result.failure(e))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("DWInterface", "Unexpected error during profile deletion", e)
+            callback(Result.failure(e))
+        }
+    }
+
+    private fun createNewProfile(
+        profileName: String,
+        callback: (kotlin.Result<Unit>) -> Unit
+    ) {
         Log.d("DWInterface", "Creating profile with name: $profileName")
         try {
             sendCommand(DWCommand.CreateProfile, profileName) { result ->
@@ -323,7 +425,6 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
                         callback(Result.failure(exception ?: Exception("Unknown error during profile creation.")))
                     } else {
                         val cmd = result.getOrThrow()
-                        Log.d("DWInterface", "Command response: ${cmd.result}")
                         when (cmd.result) {
                             "SUCCESS" -> {
                                 Log.d("DWInterface", "Profile created successfully: $profileName")
