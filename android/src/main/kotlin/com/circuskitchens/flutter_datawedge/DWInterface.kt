@@ -7,11 +7,10 @@ import android.content.IntentFilter
 import android.os.Bundle
 import android.util.Log
 import com.circuskitchens.flutter_datawedge.pigeon.*
+import java.util.function.IntConsumer
 
 enum class DWCommand(val cmd: String) {
     CreateProfile("com.symbol.datawedge.api.CREATE_PROFILE"),
-    DeleteProfile("com.symbol.datawedge.api.DELETE_PROFILE"),
-    ListProfiles("com.symbol.datawedge.api.GET_PROFILES_LIST"),
     SetConfig("com.symbol.datawedge.api.SET_CONFIG"),
     SetPluginState("com.symbol.datawedge.api.SCANNER_INPUT_PLUGIN"),
     RegisterForNotification("com.symbol.datawedge.api.REGISTER_FOR_NOTIFICATION"),
@@ -30,8 +29,15 @@ enum class DWKeys(val value: String) {
     ApplicationName("com.symbol.datawedge.api.APPLICATION_NAME"),
     NotificationType("com.symbol.datawedge.api.NOTIFICATION_TYPE"),
     ScannerStatus("SCANNER_STATUS"),
+
     SoftScanTriggerStart("START_SCANNING"),
     SoftScanTriggerStop("STOP_SCANNING")
+}
+
+enum class ConfigMode {
+    CREATE_IF_NOT_EXISTS,
+    UPDATE,
+    OVERWRITE
 }
 
 class CommandResult(
@@ -98,7 +104,6 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
         const val DATAWEDGE_SCAN_EXTRA_LABEL_TYPE = "com.symbol.datawedge.label_type"
         const val DATAWEDGE_SCAN_EXTRA_DECODE_DATA = "com.symbol.datawedge.decode_data"
         const val DATAWEDGE_SCAN_EXTRA_DECODE_MODE = "com.symbol.datawedge.decoded_mode"
-
     }
 
     fun intentToString(intent: Intent?): String? {
@@ -113,9 +118,9 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
         ).append(" ")
         return stringBuilder.toString()
     }
-
     // Called whenever an intent is passed to the broadcast receiver
     override fun onReceive(p0: Context?, intent: Intent?) {
+
         if (intent == null) {
             return
         }
@@ -193,8 +198,6 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
             }
 
             (DWEvent.ResultNotification.value) -> {
-
-
                 if (!intent.hasExtra(EXTRA_RESULT_NOTIFICATION)) {
                     return
                 }
@@ -235,8 +238,6 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
                         flutterApi.onConfigUpdate {}
 
                     }
-
-
                 }
             }
         }
@@ -283,163 +284,51 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
     ) {
         // Generate a random command identifier
         val commandIdentifier = getRandomString(10)
-
-        // Keep a reference to the callback by the command identifier
+        // Keep a reference to the callback by the command id
         callbacks[commandIdentifier] = callback
 
-        try {
-            val dwIntent = Intent().apply {
-                action = DWEvent.Action.value
-                putExtra(EXTRA_SEND_RESULT, "true")
-                putExtra(EXTRA_COMMAND_IDENTIFIER, commandIdentifier)
+        val dwIntent = Intent()
+        dwIntent.action = DWEvent.Action.value
 
-                when (parameter) {
-                    is String -> putExtra(command.cmd, parameter)
-                    is Bundle -> putExtra(command.cmd, parameter)
-                    else -> {
-                        callback(Result.failure(Error("Unsupported payload type: ${parameter::class.java.simpleName}")))
-                        return
-                    }
-                }
-            }
 
-            // Send the broadcast
-            context.sendBroadcast(dwIntent)
-        } catch (e: Exception) {
-            // Handle unexpected errors
-            callback(Result.failure(e))
+        // This is certainly not elegant... not sure how this could be done more elegantly
+        if (parameter is String) {
+            dwIntent.putExtra(command.cmd, parameter)
+        } else if (parameter is Bundle) {
+            dwIntent.putExtra(command.cmd, parameter)
+        } else {
+            callback(Result.failure(Error("Unsupported payload type")))
+            return
         }
+
+        dwIntent.putExtra(EXTRA_SEND_RESULT, "true")
+        dwIntent.putExtra(EXTRA_COMMAND_IDENTIFIER, commandIdentifier)
+
+        context.sendBroadcast(dwIntent)
+
     }
 
     override fun createProfile(
         profileName: String,
         callback: (kotlin.Result<Unit>) -> Unit
     ) {
-        Log.d("DWInterface", "Creating or updating profile: $profileName")
+        val bundle = Bundle()
+        bundle.putString("PROFILE_NAME", profileName)
+        bundle.putString("CONFIG_MODE", "OVERWRITE")
 
-        try {
-            checkProfileExists(profileName) { existsResult ->
-                existsResult.onSuccess { exists ->
-                    if (exists) {
-                        Log.d("DWInterface", "Profile already exists: $profileName. Return it.")
-                        // return existing profile or true
-                        callback(Result.success(Unit))
-                    } else {
-                        // Profile doesn't exist, create it directly
-                        createNewProfile(profileName, callback)
-                    }
-                }.onFailure { error ->
-                    Log.e("DWInterface", "Failed to check if profile exists: ${error.message}", error)
-                    callback(Result.failure(error))
+        sendCommand(DWCommand.SetConfig, bundle) { result ->
+            if (result.isFailure) {
+                callback(Result.failure(result.exceptionOrNull()!!))
+            } else {
+                val cmd = result.getOrThrow()
+                when (cmd.result) {
+                    "SUCCESS" -> callback(Result.success(Unit))
+                    else -> callback(Result.failure(Error(cmd.result)))
                 }
             }
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Unexpected error during profile creation", e)
-            callback(Result.failure(e))
         }
     }
 
-    fun checkProfileExists(
-        profileName: String,
-        callback: (kotlin.Result<Boolean>) -> Unit
-    ) {
-        Log.d("DWInterface", "Checking if profile exists: $profileName")
-        try {
-            sendCommand(DWCommand.ListProfiles, "") { result ->
-                try {
-                    if (result.isFailure) {
-                        val exception = result.exceptionOrNull()
-                        Log.e("DWInterface", "Error listing profiles: ${exception?.message}", exception)
-                        callback(Result.failure(exception ?: Exception("Unknown error during profile existence check.")))
-                    } else {
-                        val cmd = result.getOrThrow()
-                        val profiles = cmd.result.split(",") // Assuming profiles are returned as a comma-separated string
-                        val exists = profiles.contains(profileName)
-                        Log.d("DWInterface", "Profile exists: $exists for $profileName")
-                        callback(Result.success(exists))
-                    }
-                } catch (e: Exception) {
-                    Log.e("DWInterface", "Error processing command result", e)
-                    callback(Result.failure(e))
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Unexpected error during profile existence check", e)
-            callback(Result.failure(e))
-        }
-    }
-
-    fun deleteProfile(
-        profileName: String,
-        callback: (kotlin.Result<Unit>) -> Unit
-    ) {
-        Log.d("DWInterface", "Deleting profile with name: $profileName")
-        try {
-            sendCommand(DWCommand.DeleteProfile, profileName) { result ->
-                try {
-                    if (result.isFailure) {
-                        val exception = result.exceptionOrNull()
-                        Log.e("DWInterface", "Error deleting profile: ${exception?.message}", exception)
-                        callback(Result.failure(exception ?: Exception("Unknown error during profile deletion.")))
-                    } else {
-                        val cmd = result.getOrThrow()
-                        when (cmd.result) {
-                            "SUCCESS" -> {
-                                Log.d("DWInterface", "Profile deleted successfully: $profileName")
-                                callback(Result.success(Unit))
-                            }
-                            else -> {
-                                Log.e("DWInterface", "Failed to delete profile: ${cmd.result}")
-                                callback(Result.failure(Exception("Command failed: ${cmd.result}")))
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("DWInterface", "Error processing command result", e)
-                    callback(Result.failure(e))
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Unexpected error during profile deletion", e)
-            callback(Result.failure(e))
-        }
-    }
-
-    private fun createNewProfile(
-        profileName: String,
-        callback: (kotlin.Result<Unit>) -> Unit
-    ) {
-        Log.d("DWInterface", "Creating profile with name: $profileName")
-        try {
-            sendCommand(DWCommand.CreateProfile, profileName) { result ->
-                try {
-                    if (result.isFailure) {
-                        val exception = result.exceptionOrNull()
-                        Log.e("DWInterface", "Error creating profile: ${exception?.message}", exception)
-                        callback(Result.failure(exception ?: Exception("Unknown error during profile creation.")))
-                    } else {
-                        val cmd = result.getOrThrow()
-                        when (cmd.result) {
-                            "SUCCESS" -> {
-                                Log.d("DWInterface", "Profile created successfully: $profileName")
-                                callback(Result.success(Unit))
-                            }
-                            else -> {
-                                Log.e("DWInterface", "Failed to create profile: ${cmd.result}")
-                                callback(Result.failure(Exception("Command failed: ${cmd.result}")))
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("DWInterface", "Error processing command result", e)
-                    callback(Result.failure(e))
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("DWInterface", "Unexpected error during profile creation", e)
-            callback(Result.failure(e))
-        }
-    }
 
     override fun suspendPlugin(callback: (Result<String>) -> Unit) {
         sendCommandString(DWCommand.SetPluginState, "SUSPEND_PLUGIN") { result ->
@@ -609,9 +498,17 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
 
     }
 
+    fun mapConfigMode(pigeonMode: com.circuskitchens.flutter_datawedge.pigeon.ConfigMode): ConfigMode {
+        return when (pigeonMode) {
+            com.circuskitchens.flutter_datawedge.pigeon.ConfigMode.CREATE_IF_NOT_EXISTS -> ConfigMode.CREATE_IF_NOT_EXISTS
+            com.circuskitchens.flutter_datawedge.pigeon.ConfigMode.UPDATE -> ConfigMode.UPDATE
+            com.circuskitchens.flutter_datawedge.pigeon.ConfigMode.OVERWRITE -> ConfigMode.OVERWRITE
+        }
+    }
 
     override fun setProfileConfig(config: ProfileConfig, callback: (kotlin.Result<Unit>) -> Unit) {
-        // We somehow need to convert the profile config to a bundle...
+        // Convert Pigeon ConfigMode to Local ConfigMode
+        val localConfigMode = mapConfigMode(config.configMode)
 
         val configBundle = Bundle()
 
@@ -619,11 +516,10 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
         configBundle.putString("PROFILE_NAME", config.profileName)
         configBundle.putString("PROFILE_ENABLED", config.profileEnabled.toString())
         configBundle.putString(
-            "CONFIG_MODE", when (config.configMode) {
-                ConfigMode.CREATE_IF_NOT_EXISTS -> "CREATE_IF_NOT_EXIST"
+            "CONFIG_MODE", when (localConfigMode) {
+                ConfigMode.CREATE_IF_NOT_EXISTS -> "CREATE_IF_NOT_EXISTS"
                 ConfigMode.UPDATE -> "UPDATE"
                 ConfigMode.OVERWRITE -> "OVERWRITE"
-                else -> "UNKNOWN"
             }
         )
 
@@ -680,4 +576,6 @@ class DWInterface(val context: Context, val flutterApi: DataWedgeFlutterApi) : B
 
 
     }
+
+
 }
